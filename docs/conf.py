@@ -46,9 +46,9 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = u"aldernet"
-copyright = u"2022, Simon Adamov"
-author = u"Simon Adamov"
+project = "aldernet"
+copyright = "2022, Simon Adamov"
+author = "Simon Adamov"
 
 # The version info for the project you're documenting, acts as replacement
 # for |version| and |release|, also used in various other places throughout
@@ -126,8 +126,8 @@ latex_documents = [
     (
         master_doc,
         "aldernet.tex",
-        u"aldernet Documentation",
-        u"Simon Adamov",
+        "aldernet Documentation",
+        "Simon Adamov",
         "manual",
     ),
 ]
@@ -141,7 +141,7 @@ man_pages = [
     (
         master_doc,
         "aldernet",
-        u"aldernet Documentation",
+        "aldernet Documentation",
         [author],
         1,
     )
@@ -157,7 +157,7 @@ texinfo_documents = [
     (
         master_doc,
         "aldernet",
-        u"aldernet Documentation",
+        "aldernet Documentation",
         author,
         "aldernet",
         "One line description of project.",
