@@ -109,3 +109,8 @@ venv_*/
 
 # VS Code
 .vscode
+
+# Project Specific
+code_yinghao
+outputs/map*
+outputs/my_awesome.gif
