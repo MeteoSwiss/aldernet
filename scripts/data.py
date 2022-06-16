@@ -1,70 +1,138 @@
 # Standard library
+import glob
 import os
 
 # Third-party
 import cfgrib
 
-variables_surface = {"typeOfLevel": "surface", "shortName": "ALNUtune"}
-variables_3D = {"shortName": "ALNU"}
-
+# Remove existing zarr archive
 os.system("rm -r /scratch/sadamov/aldernet/baseline")
 
+# Variables to be extracted from surface-level GRIB file
+# Unfortunately, all variables have to be read first (metadata only - lazily),
+# as filtered import only supports one shortName at a time
+var_selection = [
+    "ALB_DIF",
+    "ALB_RAD",
+    "ALNUfr",
+    "CLCT",
+    "CORYctsum",
+    "CORYfe",
+    "CORYhcem",
+    "CORYreso",
+    "CORYress",
+    "CORYrprec",
+    "CORYsaisa",
+    "CORYsaisn",
+    "CORYsdes",
+    "CORYtthre",
+    "CORYtthrs",
+    "CORYtune",
+    "DPSDT",
+    "DURSUN",
+    "EMIS_RAD",
+    "FIS",
+    "FOR_D",
+    "FOR_E",
+    "FR_LAND",
+    "HPBL",
+    "HSURF",
+    "LAI",
+    "PLCOV",
+    "PS",
+    "ROOTDP",
+    "RSMIN",
+    "SKC",
+    "SKYVIEW",
+    "SLO_ANG",
+    "SLO_ASP",
+    "SOILTYP",
+    "TCH",
+    "TCM",
+    "TQC",
+    "TQV",
+    "TWATER",
+    "T_G",
+    "W_I",
+]
+
+var_selection.sort()
+
 ds_surface = cfgrib.open_dataset(
-    "/store/s83/osm/KENDA-1/ANA22/det/laf2022020900",
+    "/scratch/sadamov/aldernet/laf2022020900",
     backend_kwargs={
-        "indexpath": "",
-        "errors": "ignore",
-        "filter_by_keys": variables_surface,
+        "filter_by_keys": {"typeOfLevel": "surface"},
     },
+    encode_cf=("time", "geography", "vertical"),
 )
-ds_surface = ds_surface.drop_vars(("valid_time", "step", "surface"))
+ds_surface = ds_surface[var_selection]
 
-ds_3D = cfgrib.open_dataset(
-    "/store/s83/osm/KENDA-1/ANA22/det/laf2022020900",
+ds_cory = cfgrib.open_dataset(
+    "/scratch/sadamov/aldernet/laf2022020900",
     backend_kwargs={
-        "indexpath": "",
-        "errors": "ignore",
-        "filter_by_keys": variables_3D,
+        "filter_by_keys": {"shortName": "CORY"},
     },
+    encode_cf=("time", "geography", "vertical"),
 )
-ds_3D = ds_3D.sel({"generalVerticalLayer": 80}).drop_vars(
-    ("valid_time", "step", "generalVerticalLayer")
+ds_cory = ds_cory.sel({"generalVerticalLayer": 80}).drop_vars(("generalVerticalLayer"))
+ds_combined = ds_surface.expand_dims({"time": 1}).merge(
+    ds_cory.expand_dims({"time": 1})
 )
-ds_combined = ds_surface.expand_dims({"time": 1}).merge(ds_3D.expand_dims({"time": 1}))
+
+ds_alnu = cfgrib.open_dataset(
+    "/scratch/sadamov/aldernet/laf2022020900",
+    backend_kwargs={
+        "filter_by_keys": {"shortName": "ALNU"},
+    },
+    encode_cf=("time", "geography", "vertical"),
+)
+ds_alnu = ds_alnu.sel({"generalVerticalLayer": 80}).drop_vars(("generalVerticalLayer"))
+ds_combined = ds_combined.merge(ds_alnu.expand_dims({"time": 1}))
 ds_combined.to_zarr("/scratch/sadamov/aldernet/baseline")
-# encoding={"time": {"dtype": "timedelta64[s]"}})
 
-path = "/store/s83/osm/KENDA-1/ANA22/det"
-files = os.listdir(path)
+path = "/scratch/sadamov/aldernet/"
+files = list(set(glob.glob(path + "*")) - set(glob.glob(path + "*.*")))
 files.sort()
 
-# files_red = files[40 * 24:110 * 24]
-files_red = files[39 * 24 + 1 : 940]
+# files_red = files[39 * 24 + 2 : 90 * 24 + 1]
+files_red = files[39 * 24 + 2 : 50 * 24 + 1]
+# files_red = files[39 * 24 + 2 : 942]
 
 for file in files_red:
     ds_surface = cfgrib.open_dataset(
-        "/store/s83/osm/KENDA-1/ANA22/det/" + file,
+        file,
         backend_kwargs={
-            "indexpath": "",
-            "errors": "ignore",
-            "filter_by_keys": variables_surface,
+            "filter_by_keys": {"typeOfLevel": "surface"},
         },
+        encode_cf=("time", "geography", "vertical"),
     )
-    ds_surface = ds_surface.drop_vars(("valid_time", "step", "surface"))
-    ds_3D = cfgrib.open_dataset(
-        "/store/s83/osm/KENDA-1/ANA22/det/" + file,
+    ds_surface = ds_surface[var_selection]
+
+    ds_cory = cfgrib.open_dataset(
+        file,
         backend_kwargs={
-            "indexpath": "",
-            "errors": "ignore",
-            "filter_by_keys": variables_3D,
+            "filter_by_keys": {"shortName": "CORY"},
         },
+        encode_cf=("time", "geography", "vertical"),
     )
-    ds_3D = ds_3D.sel({"generalVerticalLayer": 80}).drop_vars(
-        ("valid_time", "step", "generalVerticalLayer")
+    ds_cory = ds_cory.sel({"generalVerticalLayer": 80}).drop_vars(
+        ("generalVerticalLayer")
     )
     ds_combined = ds_surface.expand_dims({"time": 1}).merge(
-        ds_3D.expand_dims({"time": 1})
+        ds_cory.expand_dims({"time": 1})
     )
+    ds_alnu = cfgrib.open_dataset(
+        file,
+        backend_kwargs={
+            "filter_by_keys": {"shortName": "ALNU"},
+        },
+        encode_cf=("time", "geography", "vertical"),
+    )
+    ds_alnu = ds_alnu.sel({"generalVerticalLayer": 80}).drop_vars(
+        ("generalVerticalLayer")
+    )
+    ds_combined = ds_combined.merge(ds_alnu.expand_dims({"time": 1}))
+
     ds_combined.to_zarr(
         "/scratch/sadamov/aldernet/baseline", mode="a", append_dim="time"
     )
