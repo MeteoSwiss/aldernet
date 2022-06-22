@@ -1,241 +1,221 @@
-# %%
+# Standard library
+import os
+import random
+
 # Third-party
-import matplotlib.pyplot as plt
 import numpy as np
-import tensorflow as tf
-import tensorflow_datasets as tfds
+import PIL
+from IPython.display import display
+from IPython.display import Image
+from PIL import ImageOps
 from tensorflow import keras
 from tensorflow.keras import layers
+from tensorflow.keras.preprocessing.image import load_img
 
-# %%
-dataset, info = tfds.load("oxford_iiit_pet:3.*.*", with_info=True)
+# Title: Image segmentation with a U-Net-like architecture
+# Author: [fchollet](https://twitter.com/fchollet)
+# Date created: 2019/03/20
+# Last modified: 2020/04/20
+# Description: Image segmentation model trained from scratch on the Oxford Pets dataset.
 
-# %%
-print(info)
+# Download the data
+# curl -O https://www.robots.ox.ac.uk/~vgg/data/pets/data/images.tar.gz
+# curl -O https://www.robots.ox.ac.uk/~vgg/data/pets/data/annotations.tar.gz
+# tar -xf images.tar.gz
+# tar -xf annotations.tar.gz
 
-# %%
+# Prepare paths of input images and target segmentation masks
 
+input_dir = "images/"
+target_dir = "annotations/trimaps/"
+img_size = (160, 160)
+num_classes = 3
+batch_size = 32
 
-def resize(input_image, input_mask):
-    input_image = tf.image.resize(input_image, (128, 128), method="nearest")
-    input_mask = tf.image.resize(input_mask, (128, 128), method="nearest")
-
-    return input_image, input_mask
-
-
-# %%
-
-
-def augment(input_image, input_mask):
-    if tf.random.uniform(()) > 0.5:
-        # Random flipping of the image and mask
-        input_image = tf.image.flip_left_right(input_image)
-        input_mask = tf.image.flip_left_right(input_mask)
-
-    return input_image, input_mask
-
-
-# %%
-
-
-def normalize(input_image, input_mask):
-    input_image = tf.cast(input_image, tf.float32) / 255.0
-    input_mask -= 1
-    return input_image, input_mask
-
-
-# %%
-
-
-def load_image_train(datapoint):
-    input_image = datapoint["image"]
-    input_mask = datapoint["segmentation_mask"]
-    input_image, input_mask = resize(input_image, input_mask)
-    input_image, input_mask = augment(input_image, input_mask)
-    input_image, input_mask = normalize(input_image, input_mask)
-
-    return input_image, input_mask
-
-
-def load_image_test(datapoint):
-    input_image = datapoint["image"]
-    input_mask = datapoint["segmentation_mask"]
-    input_image, input_mask = resize(input_image, input_mask)
-    input_image, input_mask = normalize(input_image, input_mask)
-
-    return input_image, input_mask
-
-
-# %%
-train_dataset = dataset["train"].map(
-    load_image_train, num_parallel_calls=tf.data.AUTOTUNE
+input_img_paths = sorted(
+    [
+        os.path.join(input_dir, fname)
+        for fname in os.listdir(input_dir)
+        if fname.endswith(".jpg")
+    ]
 )
-test_dataset = dataset["test"].map(load_image_test, num_parallel_calls=tf.data.AUTOTUNE)
-
-# %%
-BATCH_SIZE = 64
-BUFFER_SIZE = 1000
-train_batches = train_dataset.cache().shuffle(BUFFER_SIZE).batch(BATCH_SIZE).repeat()
-train_batches = train_batches.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-validation_batches = test_dataset.take(3000).batch(BATCH_SIZE)
-test_batches = test_dataset.skip(3000).take(669).batch(BATCH_SIZE)
-
-# %%
-
-
-def display(display_list):
-    plt.figure(figsize=(15, 15))
-
-    title = ["Input Image", "True Mask", "Predicted Mask"]
-    for i in range(len(display_list)):
-        plt.subplot(1, len(display_list), i + 1)
-        plt.title(title[i])
-        plt.imshow(tf.keras.utils.array_to_img(display_list[i]))
-        plt.axis("off")
-    plt.show()
-
-
-sample_batch = next(iter(train_batches))
-random_index = np.random.choice(sample_batch[0].shape[0])
-sample_image, sample_mask = sample_batch[0][random_index], sample_batch[1][random_index]
-display([sample_image, sample_mask])
-
-# %%
-
-
-def double_conv_block(x, n_filters):
-
-    # Conv2D then ReLU activation
-    x = layers.Conv2D(
-        n_filters, 3, padding="same", activation="relu", kernel_initializer="he_normal"
-    )(x)
-    # Conv2D then ReLU activation
-    x = layers.Conv2D(
-        n_filters, 3, padding="same", activation="relu", kernel_initializer="he_normal"
-    )(x)
-
-    return x
-
-
-# %%
-
-
-def downsample_block(x, n_filters):
-    f = double_conv_block(x, n_filters)
-    p = layers.MaxPool2D(2)(f)
-    p = layers.Dropout(0.3)(p)
-
-    return f, p
-
-
-# %%
-
-
-def upsample_block(x, conv_features, n_filters):
-    # upsample
-    x = layers.Conv2DTranspose(n_filters, 3, 2, padding="same")(x)
-    # concatenate
-    x = layers.concatenate([x, conv_features])
-    # dropout
-    x = layers.Dropout(0.3)(x)
-    # Conv2D twice with ReLU activation
-    x = double_conv_block(x, n_filters)
-
-    return x
-
-
-# %%
-
-
-def build_unet_model():
-    # inputs
-    inputs = layers.Input(shape=(128, 128, 3))
-
-    # encoder: contracting path - downsample
-    # 1 - downsample
-    f1, p1 = downsample_block(inputs, 64)
-    # 2 - downsample
-    f2, p2 = downsample_block(p1, 128)
-    # 3 - downsample
-    f3, p3 = downsample_block(p2, 256)
-    # 4 - downsample
-    f4, p4 = downsample_block(p3, 512)
-
-    # 5 - bottleneck
-    bottleneck = double_conv_block(p4, 1024)
-
-    # decoder: expanding path - upsample
-    # 6 - upsample
-    u6 = upsample_block(bottleneck, f4, 512)
-    # 7 - upsample
-    u7 = upsample_block(u6, f3, 256)
-    # 8 - upsample
-    u8 = upsample_block(u7, f2, 128)
-    # 9 - upsample
-    u9 = upsample_block(u8, f1, 64)
-
-    # outputs
-    outputs = layers.Conv2D(3, 1, padding="same", activation="softmax")(u9)
-
-    # unet model with Keras Functional API
-    unet_model = tf.keras.Model(inputs, outputs, name="U-Net")
-
-    return unet_model
-
-
-# %%
-unet_model = build_unet_model()
-
-# %%
-unet_model.compile(
-    optimizer=tf.keras.optimizers.Adam(),
-    loss="sparse_categorical_crossentropy",
-    metrics="accuracy",
+target_img_paths = sorted(
+    [
+        os.path.join(target_dir, fname)
+        for fname in os.listdir(target_dir)
+        if fname.endswith(".png") and not fname.startswith(".")
+    ]
 )
 
-# %%
-NUM_EPOCHS = 20
+print("Number of samples:", len(input_img_paths))
 
-TRAIN_LENGTH = info.splits["train"].num_examples
-STEPS_PER_EPOCH = TRAIN_LENGTH // BATCH_SIZE
+for input_path, target_path in zip(input_img_paths[:10], target_img_paths[:10]):
+    print(input_path, "|", target_path)
 
-VAL_SUBSPLITS = 5
-TEST_LENTH = info.splits["test"].num_examples
-VALIDATION_STEPS = TEST_LENTH // BATCH_SIZE // VAL_SUBSPLITS
+# What does one input image and corresponding segmentation mask look like?
 
-model_history = unet_model.fit(
-    train_batches,
-    epochs=NUM_EPOCHS,
-    steps_per_epoch=STEPS_PER_EPOCH,
-    validation_steps=VALIDATION_STEPS,
-    validation_data=test_batches,
-)
+# Display input image #7
+display(Image(filename=input_img_paths[9]))
 
-# %%
+# Display auto-contrast version of corresponding target (per-pixel categories)
+img = PIL.ImageOps.autocontrast(load_img(target_img_paths[9]))
+display(img)
 
 
-def create_mask(pred_mask):
-    pred_mask = tf.argmax(pred_mask, axis=-1)
-    pred_mask = pred_mask[..., tf.newaxis]
-    return pred_mask[0]
+# Prepare `Sequence` class to load & vectorize batches of data
 
 
-def show_predictions(dataset=None, num=1):
-    if dataset:
-        for image, mask in dataset.take(num):
-            pred_mask = unet_model.predict(image)
-            display([image[0], mask[0], create_mask(pred_mask)])
-    else:
-        display(
-            [
-                sample_image,
-                sample_mask,
-                create_mask(unet_model.predict(sample_image[tf.newaxis, ...])),
-            ]
+class OxfordPets(keras.utils.Sequence):
+    # Helper to iterate over the data (as Numpy arrays).
+
+    def __init__(self, batch_size, img_size, input_img_paths, target_img_paths):
+        self.batch_size = batch_size
+        self.img_size = img_size
+        self.input_img_paths = input_img_paths
+        self.target_img_paths = target_img_paths
+
+    def __len__(self):
+        return len(self.target_img_paths) // self.batch_size
+
+    def __getitem__(self, idx):
+        # Returns tuple (input, target) correspond to batch #idx.
+        i = idx * self.batch_size
+        batch_input_img_paths = self.input_img_paths[i : i + self.batch_size]
+        batch_target_img_paths = self.target_img_paths[i : i + self.batch_size]
+        x = np.zeros((self.batch_size,) + self.img_size + (3,), dtype="float32")
+        for j, path in enumerate(batch_input_img_paths):
+            img = load_img(path, target_size=self.img_size)
+            x[j] = img
+        y = np.zeros((self.batch_size,) + self.img_size + (1,), dtype="uint8")
+        for j, path in enumerate(batch_target_img_paths):
+            img = load_img(path, target_size=self.img_size, color_mode="grayscale")
+            y[j] = np.expand_dims(img, 2)
+            # Ground truth labels are 1, 2, 3. Subtract one to make them 0, 1, 2:
+            y[j] -= 1
+        return x, y
+
+
+# Prepare U-Net Xception-style model
+def get_model(img_size, num_classes):
+    inputs = keras.Input(shape=img_size + (3,))
+    # [First half of the network: downsampling inputs]
+
+    # Entry block
+    x = layers.Conv2D(32, 3, strides=2, padding="same")(inputs)
+    x = layers.BatchNormalization()(x)
+    x = layers.Activation("relu")(x)
+
+    previous_block_activation = x  # Set aside residual
+
+    # Blocks 1, 2, 3 are identical apart from the feature depth.
+    for filters in [64, 128, 256]:
+        x = layers.Activation("relu")(x)
+        x = layers.SeparableConv2D(filters, 3, padding="same")(x)
+        x = layers.BatchNormalization()(x)
+
+        x = layers.Activation("relu")(x)
+        x = layers.SeparableConv2D(filters, 3, padding="same")(x)
+        x = layers.BatchNormalization()(x)
+
+        x = layers.MaxPooling2D(3, strides=2, padding="same")(x)
+
+        # Project residual
+        residual = layers.Conv2D(filters, 1, strides=2, padding="same")(
+            previous_block_activation
         )
+        x = layers.add([x, residual])  # Add back residual
+        previous_block_activation = x  # Set aside next residual
+
+    # [Second half of the network: upsampling inputs] #
+
+    for filters in [256, 128, 64, 32]:
+        x = layers.Activation("relu")(x)
+        x = layers.Conv2DTranspose(filters, 3, padding="same")(x)
+        x = layers.BatchNormalization()(x)
+
+        x = layers.Activation("relu")(x)
+        x = layers.Conv2DTranspose(filters, 3, padding="same")(x)
+        x = layers.BatchNormalization()(x)
+
+        x = layers.UpSampling2D(2)(x)
+
+        # Project residual
+        residual = layers.UpSampling2D(2)(previous_block_activation)
+        residual = layers.Conv2D(filters, 1, padding="same")(residual)
+        x = layers.add([x, residual])  # Add back residual
+        previous_block_activation = x  # Set aside next residual
+
+    # Add a per-pixel classification layer
+    outputs = layers.Conv2D(num_classes, 3, activation="softmax", padding="same")(x)
+
+    # Define the model
+    model = keras.Model(inputs, outputs)
+    return model
 
 
-count = 0
-for i in test_batches:
-    count += 1
-print("number of batches:", count)
+# Free up RAM in case the model definition cells were run multiple times
+keras.backend.clear_session()
+
+# Build model
+model = get_model(img_size, num_classes)
+model.summary()
+
+# Set aside a validation split
+
+# Split our img paths into a training and a validation set
+val_samples = 1000
+random.Random(1337).shuffle(input_img_paths)
+random.Random(1337).shuffle(target_img_paths)
+train_input_img_paths = input_img_paths[:-val_samples]
+train_target_img_paths = target_img_paths[:-val_samples]
+val_input_img_paths = input_img_paths[-val_samples:]
+val_target_img_paths = target_img_paths[-val_samples:]
+
+# Instantiate data Sequences for each split
+train_gen = OxfordPets(
+    batch_size, img_size, train_input_img_paths, train_target_img_paths
+)
+val_gen = OxfordPets(batch_size, img_size, val_input_img_paths, val_target_img_paths)
+
+# Train the model
+# Configure the model for training.
+# We use the "sparse" version of categorical_crossentropy
+# because our target data is integers.
+model.compile(optimizer="rmsprop", loss="sparse_categorical_crossentropy")
+
+callbacks = [
+    keras.callbacks.ModelCheckpoint("oxford_segmentation.h5", save_best_only=True)
+]
+
+# Train the model, doing validation at the end of each epoch.
+epochs = 15
+model.fit(train_gen, epochs=epochs, validation_data=val_gen, callbacks=callbacks)
+
+# Visualize predictions
+
+# Generate predictions for all images in the validation set
+
+val_gen = OxfordPets(batch_size, img_size, val_input_img_paths, val_target_img_paths)
+val_preds = model.predict(val_gen)
+
+
+def display_mask(i):
+    # Quick utility to display a model's prediction.
+    mask = np.argmax(val_preds[i], axis=-1)
+    mask = np.expand_dims(mask, axis=-1)
+    img = PIL.ImageOps.autocontrast(keras.preprocessing.image.array_to_img(mask))
+    display(img)
+
+
+# Display results for validation image #10
+i = 10
+
+# Display input image
+display(Image(filename=val_input_img_paths[i]))
+
+# Display ground-truth target mask
+img = PIL.ImageOps.autocontrast(load_img(val_target_img_paths[i]))
+display(img)
+
+# Display mask predicted by our model
+display_mask(i)  # Note that the model only sees inputs at 150x150.
