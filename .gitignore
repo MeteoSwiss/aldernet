@@ -114,3 +114,5 @@ venv_*/
 code_yinghao
 outputs/map*
 outputs/my_awesome.gif
+images
+annotations
