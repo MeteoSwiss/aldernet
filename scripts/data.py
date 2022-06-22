@@ -6,7 +6,7 @@ import os
 import cfgrib
 
 # Remove existing zarr archive
-os.system("rm -r /scratch/sadamov/aldernet/baseline")
+os.system("rm -r /scratch/sadamov/aldernet/data")
 
 # Variables to be extracted from surface-level GRIB file
 # Unfortunately, all variables have to be read first (metadata only - lazily),
@@ -59,7 +59,7 @@ var_selection = [
 var_selection.sort()
 
 ds_surface = cfgrib.open_dataset(
-    "/scratch/sadamov/aldernet/laf2022020900",
+    "/scratch/sadamov/aldernet/000/laf2022020900",
     backend_kwargs={
         "filter_by_keys": {"typeOfLevel": "surface"},
     },
@@ -68,7 +68,7 @@ ds_surface = cfgrib.open_dataset(
 ds_surface = ds_surface[var_selection]
 
 ds_cory = cfgrib.open_dataset(
-    "/scratch/sadamov/aldernet/laf2022020900",
+    "/scratch/sadamov/aldernet/000/laf2022020900",
     backend_kwargs={
         "filter_by_keys": {"shortName": "CORY"},
     },
@@ -80,7 +80,7 @@ ds_combined = ds_surface.expand_dims({"time": 1}).merge(
 )
 
 ds_alnu = cfgrib.open_dataset(
-    "/scratch/sadamov/aldernet/laf2022020900",
+    "/scratch/sadamov/aldernet/000/laf2022020900",
     backend_kwargs={
         "filter_by_keys": {"shortName": "ALNU"},
     },
@@ -88,15 +88,15 @@ ds_alnu = cfgrib.open_dataset(
 )
 ds_alnu = ds_alnu.sel({"generalVerticalLayer": 80}).drop_vars(("generalVerticalLayer"))
 ds_combined = ds_combined.merge(ds_alnu.expand_dims({"time": 1}))
-ds_combined.to_zarr("/scratch/sadamov/aldernet/baseline")
+# ds_combined = ds_combined.assign_coords(member=1).expand_dims({"member": 1})
 
-path = "/scratch/sadamov/aldernet/"
+ds_combined.to_zarr("/scratch/sadamov/aldernet/data")
+
+path = "/scratch/sadamov/aldernet/000/"
 files = list(set(glob.glob(path + "*")) - set(glob.glob(path + "*.*")))
 files.sort()
 
-# files_red = files[39 * 24 + 2 : 90 * 24 + 1]
-files_red = files[39 * 24 + 2 : 50 * 24 + 1]
-# files_red = files[39 * 24 + 2 : 942]
+files_red = files[39 * 24 + 1 : 90 * 24]
 
 for file in files_red:
     ds_surface = cfgrib.open_dataset(
@@ -133,6 +133,4 @@ for file in files_red:
     )
     ds_combined = ds_combined.merge(ds_alnu.expand_dims({"time": 1}))
 
-    ds_combined.to_zarr(
-        "/scratch/sadamov/aldernet/baseline", mode="a", append_dim="time"
-    )
+    ds_combined.to_zarr("/scratch/sadamov/aldernet/data", mode="a", append_dim="time")
