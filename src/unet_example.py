@@ -190,7 +190,7 @@ callbacks = [
 ]
 
 # Train the model, doing validation at the end of each epoch.
-epochs = 15
+epochs = 25
 model.fit(train_gen, epochs=epochs, validation_data=val_gen, callbacks=callbacks)
 
 # Visualize predictions

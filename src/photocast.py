@@ -32,13 +32,13 @@ run_path = (
 Path(run_path).mkdir(parents=True, exist_ok=True)
 
 
-# %% Profiling and Debugging
+# Profiling and Debugging
 
 # tf.profiler.experimental.server.start(6009)
 # tf.config.experimental_run_functions_eagerly(True)
 
 
-# %% Create Datasets
+# Create Datasets
 
 batch_size = 40
 
@@ -75,7 +75,7 @@ dataset_train = (
     .prefetch(tf.data.AUTOTUNE)
 )
 
-# %% Model
+# Model
 
 height = images.shape[1]
 width = images.shape[2]
@@ -103,7 +103,7 @@ tf.keras.utils.plot_model(
 )
 
 
-# %% Train
+# Train
 
 train_gan(
     generator, optimizer_gen, discriminator, optimizer_disc, dataset_train, run_path
