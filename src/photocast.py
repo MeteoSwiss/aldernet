@@ -1,483 +1,110 @@
-"""Train a cGAN with UNET Architecture.
-
-To create realistic Images of Pollen Surface Concentration Maps.
-"""
+"""Train a cGAN and based on COSMO-1e input data."""
 
 # Copyright (c) 2022 MeteoSwiss, contributors listed in AUTHORS
 # Distributed under the terms of the BSD 3-Clause License.
 # SPDX-License-Identifier: BSD-3-Clause
 
+# Train the generator and discriminator networks
+
 # Standard library
-import os
-import time
+import datetime
+from contextlib import redirect_stdout
+from pathlib import Path
 
 # Third-party
-import keras
 import numpy as np
 import tensorflow as tf
-from matplotlib import pyplot as plt
-from tensorflow.keras import layers
-from tensorflow.keras.constraints import Constraint
 
-experiment_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+# First-party
+from photocast_utils import discriminator
+from photocast_utils import experiment_path
+from photocast_utils import generator
+from photocast_utils import tf_setup
+from photocast_utils import train_gan
 
-##########################
+tf_setup(26000)
+tf.random.set_seed(1)
 
+run_path = (
+    experiment_path + "/run__/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+)
 
-def tf_setup(memory_limit=8000):
+Path(run_path).mkdir(parents=True, exist_ok=True)
 
-    gpus = tf.config.list_physical_devices("GPU")
-    for gpu in gpus:
-        tf.config.set_logical_device_configuration(
-            gpu, [tf.config.LogicalDeviceConfiguration(memory_limit=memory_limit)]
-        )
 
+# %% Profiling and Debugging
 
-##########################
+# tf.profiler.experimental.server.start(6009)
+# tf.config.experimental_run_functions_eagerly(True)
 
 
-def cutmix_maps(shape):
+# %% Create Datasets
 
-    batch_size, height, width, channels = shape
-    maps = np.ones(shape)
+batch_size = 40
 
-    for bb in range(batch_size):
-        r = np.sqrt(np.random.uniform())
-        w = int(width * r)
-        h = int(height * r)
-        x = np.random.randint(width)
-        y = np.random.randint(height)
+images = tf.convert_to_tensor(np.load("data/nowcasting/fluela/images_64_128.npy"))
+weather = tf.convert_to_tensor(np.load("data/nowcasting/fluela/weather.npy"))
+pairs = np.load("data/nowcasting/fluela/pairs.npy").astype(int)
 
-        x1 = np.clip(x - w // 2, 0, width)
-        y1 = np.clip(y - h // 2, 0, height)
-        x2 = np.clip(x + w // 2, 0, width)
-        y2 = np.clip(y + h // 2, 0, height)
+# images tensor with about 30000 samples leads to a libprotobuf error when
+# creating the dataset iterator
+images0 = images[0:20000, :, :, :]
+images2 = images[20000:40000, :, :, :]
+images4 = images[40000:, :, :, :]
 
-        maps[bb, y1:y2, x1:x2, :] = 0
-        if np.random.uniform() > 0.5:
-            maps[bb, :, :, :] = 1 - maps[bb, :, :, :]
 
-    return tf.convert_to_tensor(maps, dtype=tf.float32)
-
-
-def cutmix_validate(height, width):
-
-    maps = cutmix_maps([5, height, width, 1])
-    for bb in range(maps.shape[0]):
-        plt.imshow(maps[bb, :, :])
-        plt.show()
-
-    maps = cutmix_maps([10000, height, width, 1])
-    areas = tf.math.reduce_mean(maps, [1, 2])
-    plt.hist(areas.numpy())
-    plt.show()
-
-
-##########################
-
-
-class SpectralNormalization(Constraint):
-    def __init__(self, iterations=1):
-        """Define class objects."""
-        self.iterations = iterations
-        self.u = None
-
-    def __call__(self, w):
-        output_neurons = w.shape[-1]
-        W_ = tf.reshape(w, [-1, output_neurons])
-        if self.u is None:
-            self.u = tf.Variable(
-                initial_value=tf.random_normal_initializer()(
-                    shape=(output_neurons,), dtype="float32"
-                ),
-                trainable=False,
-            )
-
-        u_ = self.u
-        v_ = None
-        for _ in range(self.iterations):
-            v_ = tf.matvec(W_, u_)
-            v_ = tf.l2_normalize(v_)
-
-            u_ = tf.matvec(W_, v_, transpose_a=True)
-            u_ = tf.l2_normalize(u_)
-
-        sigma = tf.tensordot(u_, tf.matvec(W_, v_, transpose_a=True), axes=1)
-        self.u.assign(u_)  # '=' produces an error in graph mode
-        return w / sigma
-
-
-##########################
-
-
-def cbr(filters, name=None):
-
-    block = keras.Sequential(name=name)
-    block.add(
-        layers.Conv2D(
-            filters=filters,
-            kernel_size=3,
-            padding="same",
-            use_bias=False,
-            kernel_constraint=SpectralNormalization(),
-        )
-    )
-    block.add(layers.BatchNormalization())
-    block.add(layers.LeakyReLU())
-
-    return block
-
-
-def down(filters, name=None):
-
-    block = keras.Sequential(name=name)
-    block.add(
-        layers.Conv2D(
-            filters=filters,
-            kernel_size=4,
-            strides=2,
-            padding="same",
-            use_bias=False,
-            kernel_constraint=SpectralNormalization(),
-        )
-    )
-    block.add(layers.BatchNormalization())
-    block.add(layers.LeakyReLU())
-
-    return block
-
-
-def up(filters, name=None):
-
-    block = keras.Sequential(name=name)
-    block.add(
-        layers.Conv2DTranspose(
-            filters=filters,
-            kernel_size=4,
-            strides=2,
-            padding="same",
-            use_bias=False,
-            kernel_constraint=SpectralNormalization(),
-        )
-    )
-    block.add(layers.BatchNormalization())
-    block.add(layers.LeakyReLU())
-
-    return block
-
-
-##########################
-
-
-filters = [64, 128, 256, 512, 1024, 1024, 512, 768, 640, 448, 288, 352]
-noise_dim = 100
-noise_channels = 128
-
-
-def generator(height, width, weather_features):
-
-    weather_input = keras.Input(shape=weather_features * 2, name="weather-input")
-    weather = layers.RepeatVector(height * width)(weather_input)
-    weather = layers.Reshape((height, width, weather_features * 2))(weather)
-
-    image_input = keras.Input(shape=[height, width, 3], name="image-input")
-    inputs = layers.Concatenate(name="inputs-concat")([image_input, weather])
-
-    block = cbr(filters[0], "pre-cbr-1")(inputs)
-
-    u_skip_layers = [block]
-    for ll in range(1, len(filters) // 2):
-
-        block = down(filters[ll], "down_%s-down" % ll)(block)
-
-        # Collect U-Net skip connections
-        u_skip_layers.append(block)
-
-    noise_input = keras.Input(shape=noise_dim, name="noise-input")
-    height = block.shape[1]
-    width = block.shape[2]
-    noise = layers.Dense(
-        height * width * noise_channels,
-        # kernel_constraint=SpectralNormalization()
-    )(noise_input)
-    noise = layers.Reshape((height, width, -1))(noise)
-
-    block = layers.Concatenate(name="add-noise")([block, noise])
-    u_skip_layers.pop()
-
-    for ll in range(len(filters) // 2, len(filters) - 1):
-
-        block = up(filters[ll], "up_%s-up" % (len(filters) - ll - 1))(block)
-
-        # Connect U-Net skip
-        block = layers.Concatenate(name="up_%s-concatenate" % (len(filters) - ll - 1))(
-            [block, u_skip_layers.pop()]
-        )
-
-    block = cbr(filters[-1], "post-cbr-1")(block)
-
-    rgb = layers.Conv2D(
-        filters=3,
-        kernel_size=1,
-        padding="same",
-        activation="tanh",
-        kernel_constraint=SpectralNormalization(),
-        name="rgb-conv",
-    )(block)
-
-    return tf.keras.Model(inputs=[noise_input, image_input, weather_input], outputs=rgb)
-
-
-##########################
-
-
-def load_jpeg(path):
-    image = tf.io.read_file(path)
-    jpeg = tf.image.decode_jpeg(image)
-    jpeg = tf.cast(jpeg, tf.float32)
-    jpeg = jpeg[:-10, :-10] / 127.5 - 1  # cut away black bars for old cameras
-    return jpeg
-
-
-def write_png(image, path):
-    image = (image + 1) * 127.5
-    image = tf.cast(image, tf.uint8)
-    png = tf.image.encode_png(image)
-    tf.io.write_file(path, png)
-
-
-bxe_loss = tf.keras.losses.BinaryCrossentropy(from_logits=True)
-
-
-##########################
-
-
-filters = [64, 128, 256, 512, 1024, 1024, 512, 768, 640, 448, 288, 352]
-interpolation = "nearest"
-
-
-def discriminator(height, width, weather_features):
-
-    weather_input = keras.Input(shape=weather_features * 2, name="weather-input")
-    weather = layers.RepeatVector(height * width)(weather_input)
-    weather = layers.Reshape((height, width, weather_features * 2))(weather)
-
-    image_a_input = keras.Input(shape=[height, width, 3], name="image_a-input")
-    image_b_input = keras.Input(shape=[height, width, 3], name="image_b-input")
-
-    inputs = layers.Concatenate(name="inputs-concat")(
-        [image_a_input, weather, image_b_input]
-    )
-
-    block = cbr(filters[0], "pre-cbr-1")(inputs)
-
-    u_skip_layers = [block]
-    for ll in range(1, len(filters) // 2):
-
-        block = down(filters[ll], "down_%s-down" % ll)(block)
-
-        # Collect U-Net skip connections
-        u_skip_layers.append(block)
-
-    label_global = layers.Conv2D(
-        filters=1,
-        kernel_size=1,
-        padding="same",
-        kernel_constraint=SpectralNormalization(),
-        name="label_global",
-    )(block)
-    u_skip_layers.pop()
-
-    for ll in range(len(filters) // 2, len(filters) - 1):
-
-        block = up(filters[ll], "up_%s-up" % (len(filters) - ll - 1))(block)
-
-        # Connect U-Net skip
-        block = layers.Concatenate(name="up_%s-concatenate" % (len(filters) - ll - 1))(
-            [block, u_skip_layers.pop()]
-        )
-
-    block = cbr(filters[-1], "post-cbr-1")(block)
-
-    label_pixel = layers.Conv2D(
-        filters=1,
-        kernel_size=1,
-        padding="same",
-        kernel_constraint=SpectralNormalization(),
-        name="label_pixel",
-    )(block)
-
-    return keras.Model(
-        inputs=[image_a_input, weather_input, image_b_input],
-        outputs=[label_global, label_pixel],
-    )
-
-
-bxe_loss = tf.keras.losses.BinaryCrossentropy(from_logits=True)
-
-
-@tf.function
-def gan_step(
-    generator,
-    optimizer_gen,
-    discriminator,
-    optimizer_disc,
-    images_a,
-    weathers_a,
-    images_b,
-    weathers_b,
-    maps,
-    summary_writer,
-    step,
-):
-
-    noise = tf.random.normal([images_a.shape[0], noise_dim])
-    noise2 = tf.random.normal([images_a.shape[0], noise_dim])
-    weathers = tf.concat([weathers_a, weathers_b], axis=1)
-    with tf.GradientTape() as tape_gen, tf.GradientTape() as tape_disc:
-        generated = generator([noise, images_a, weathers])
-        mixed = maps * images_b + (1 - maps) * generated
-
-        discriminated_real_global, discriminated_real_pixel = discriminator(
-            [images_a, weathers, images_b]
-        )
-        discriminated_fake_global, discriminated_fake_pixel = discriminator(
-            [images_a, weathers, generated]
-        )
-        _, discriminated_mixed_pixel = discriminator([images_a, weathers, mixed])
-
-        gen_fake_loss = bxe_loss(
-            tf.ones_like(discriminated_fake_global), discriminated_fake_global
-        ) + bxe_loss(tf.ones_like(discriminated_fake_pixel), discriminated_fake_pixel)
-
-        generated2 = generator([noise2, images_a, weathers])
-        gen_similarity_loss = -tf.math.reduce_mean(tf.math.abs(generated - generated2))
-
-        gen_loss = gen_fake_loss + gen_similarity_loss
-
-        disc_real_loss = bxe_loss(
-            tf.ones_like(discriminated_real_global), discriminated_real_global
-        )
-        disc_fake_loss = bxe_loss(
-            tf.zeros_like(discriminated_fake_global), discriminated_fake_global
-        )
-        disc_mixed_loss = bxe_loss(maps[:, :, :, 0:1], discriminated_mixed_pixel)
-        disc_loss = disc_real_loss + disc_fake_loss + disc_mixed_loss
-
-    gradients_gen = tape_gen.gradient(gen_loss, generator.trainable_variables)
-    optimizer_gen.apply_gradients(zip(gradients_gen, generator.trainable_variables))
-    gradients_disc = tape_disc.gradient(disc_loss, discriminator.trainable_variables)
-    optimizer_disc.apply_gradients(
-        zip(gradients_disc, discriminator.trainable_variables)
-    )
-
-    with summary_writer.as_default():
-        tf.summary.scalar("gen_fake_loss", gen_fake_loss, step=step)
-        tf.summary.scalar("gen_similarity_loss", gen_similarity_loss, step=step)
-        tf.summary.scalar("disc_loss", disc_loss, step=step)
-
-
-def train_gan(
-    generator, optimizer_gen, discriminator, optimizer_disc, dataset_train, run_path
-):
-
-    summary_writer = tf.summary.create_file_writer(run_path)
-    epoch = tf.Variable(1, dtype="int64")
-    step = tf.Variable(1, dtype="int64")
-
-    ckpt = tf.train.Checkpoint(
-        epoch=epoch,
-        step=step,
-        generator=generator,
-        optimizer_gen=optimizer_gen,
-        discriminator=discriminator,
-        optimizer_disc=optimizer_disc,
-    )
-    manager = tf.train.CheckpointManager(
-        ckpt,
-        directory=run_path + "/checkpoint",
-        max_to_keep=2,
-        keep_checkpoint_every_n_hours=4,
-    )
-    ckpt.restore(manager.latest_checkpoint)
-    if manager.latest_checkpoint:
-        print("Restored from {}".format(manager.latest_checkpoint))
+def access_image(idx):
+    if idx < 20000:
+        return images0[idx, :, :, :]
+    elif idx >= 20000 and idx < 40000:  # 20000 <= idx < 40000 leads to error
+        return images2[idx - 20000, :, :, :]
     else:
-        print("Initializing from scratch.")
+        return images4[idx - 40000, :, :, :]
 
-    while True:
-        start = time.time()
-        for images_a, weathers_a, images_b, weathers_b in dataset_train:
 
-            if step % 10 == 0:
-                print(epoch.numpy(), "-", step.numpy())
+def pair(p):
+    return access_image(p[0]), weather[p[0], :], access_image(p[1]), weather[p[1], :]
 
-            maps = cutmix_maps(images_a.shape)
-            gan_step(
-                generator,
-                optimizer_gen,
-                discriminator,
-                optimizer_disc,
-                images_a,
-                weathers_a,
-                images_b,
-                weathers_b,
-                maps,
-                summary_writer,
-                step,
-            )
 
-            if step % 100 == 0:
-                weathers = tf.concat([weathers_a, weathers_b], axis=1)
+dataset_train = tf.data.Dataset.from_tensor_slices(pairs).map(
+    pair, num_parallel_calls=tf.data.AUTOTUNE, deterministic=False
+)
+dataset_train = (
+    dataset_train.shuffle(100 * batch_size, reshuffle_each_iteration=True)
+    .batch(batch_size)
+    .prefetch(tf.data.AUTOTUNE)
+)
 
-                noise_1 = tf.random.normal([images_a.shape[0], noise_dim])
-                generated_1 = generator([noise_1, images_a, weathers])
-                noise_2 = tf.random.normal([images_a.shape[0], noise_dim])
-                generated_2 = generator([noise_2, images_a, weathers])
+# %% Model
 
-                gen_l1 = tf.reduce_mean(tf.abs(images_b - generated_1))
-                with summary_writer.as_default():
-                    tf.summary.scalar("gen_l1", gen_l1, step=step)
+height = images.shape[1]
+width = images.shape[2]
+weather_features = weather.shape[1]
 
-                viz_img = tf.concat(
-                    [images_a[0], images_b[0], generated_1[0], generated_2[0]], axis=1
-                )
+generator = generator(height, width, weather_features)
+# betas need to be floats, or checkpoint restoration fails
+optimizer_gen = tf.keras.optimizers.Adam(learning_rate=5e-5, beta_1=0.0, beta_2=0.9)
 
-                _, discriminated_fake_1 = discriminator(
-                    [images_a, weathers, generated_1]
-                )
-                _, discriminated_fake_2 = discriminator(
-                    [images_a, weathers, generated_2]
-                )
-                _, discriminated_real = discriminator([images_a, weathers, images_b])
-                logits = tf.concat(
-                    [
-                        tf.zeros_like(discriminated_real[0]),
-                        discriminated_real[0],
-                        discriminated_fake_1[0],
-                        discriminated_fake_2[0],
-                    ],
-                    axis=1,
-                )
-                viz_labels = tf.tile(tf.tanh(logits), tf.constant([1, 1, 3], tf.int32))
+discriminator = discriminator(height, width, weather_features)
+optimizer_disc = tf.keras.optimizers.Adam(learning_rate=1e-4, beta_1=0.0, beta_2=0.9)
 
-                viz = tf.concat([viz_img, viz_labels], axis=0)
-                tf.image.write_png(
-                    viz,
-                    run_path
-                    + "/viz/"
-                    + str(epoch.numpy())
-                    + "-"
-                    + str(step.numpy())
-                    + ".png",
-                )
+with open(run_path + "/generator_summary.txt", "w") as handle:
+    with redirect_stdout(handle):
+        generator.summary()
+tf.keras.utils.plot_model(
+    generator, to_file=run_path + "/generator.png", show_shapes=True, dpi=96
+)
 
-            step.assign_add(1)
+with open(run_path + "/discriminator_summary.txt", "w") as handle:
+    with redirect_stdout(handle):
+        discriminator.summary()
+tf.keras.utils.plot_model(
+    discriminator, to_file=run_path + "/discriminator.png", show_shapes=True, dpi=96
+)
 
-        print(
-            "Time taken for epoch {} is {} sec\n".format(
-                epoch.numpy(), time.time() - start
-            )
-        )
-        epoch.assign_add(1)
-        manager.save()
+
+# %% Train
+
+train_gan(
+    generator, optimizer_gen, discriminator, optimizer_disc, dataset_train, run_path
+)
