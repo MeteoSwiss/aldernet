@@ -117,3 +117,4 @@ outputs/my_awesome.gif
 images
 annotations
 oxford_segmentation.h5
+data/cevio.zip
