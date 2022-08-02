@@ -117,4 +117,7 @@ outputs/my_awesome.gif
 images
 annotations
 oxford_segmentation.h5
-data/cevio.zip
+data/cevio
+mlruns
+run__
+src/photocast_utils.py-jvsc*.ipynb

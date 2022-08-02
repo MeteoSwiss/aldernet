@@ -13,11 +13,14 @@ import time
 
 # Third-party
 import keras
+import mlflow
 import numpy as np
 import tensorflow as tf
 from matplotlib import pyplot as plt
 from tensorflow.keras import layers
 from tensorflow.keras.constraints import Constraint
+from tensorflow.linalg import matvec
+from tensorflow.nn import l2_normalize
 
 experiment_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
@@ -96,13 +99,13 @@ class SpectralNormalization(Constraint):
         u_ = self.u
         v_ = None
         for _ in range(self.iterations):
-            v_ = tf.matvec(W_, u_)
-            v_ = tf.l2_normalize(v_)
+            v_ = matvec(W_, u_)
+            v_ = l2_normalize(v_)
 
-            u_ = tf.matvec(W_, v_, transpose_a=True)
-            u_ = tf.l2_normalize(u_)
+            u_ = matvec(W_, v_, transpose_a=True)
+            u_ = l2_normalize(u_)
 
-        sigma = tf.tensordot(u_, tf.matvec(W_, v_, transpose_a=True), axes=1)
+        sigma = tf.tensordot(u_, matvec(W_, v_, transpose_a=True), axes=1)
         self.u.assign(u_)  # '=' produces an error in graph mode
         return w / sigma
 
@@ -375,6 +378,7 @@ def gan_step(
         tf.summary.scalar("gen_fake_loss", gen_fake_loss, step=step)
         tf.summary.scalar("gen_similarity_loss", gen_similarity_loss, step=step)
         tf.summary.scalar("disc_loss", disc_loss, step=step)
+    mlflow.keras.autolog()
 
 
 def train_gan(

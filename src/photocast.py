@@ -42,9 +42,9 @@ Path(run_path).mkdir(parents=True, exist_ok=True)
 
 batch_size = 40
 
-images = tf.convert_to_tensor(np.load("data/nowcasting/fluela/images_64_128.npy"))
-weather = tf.convert_to_tensor(np.load("data/nowcasting/fluela/weather.npy"))
-pairs = np.load("data/nowcasting/fluela/pairs.npy").astype(int)
+images = tf.convert_to_tensor(np.load("data/cevio/images_64_128.npy"))
+weather = tf.convert_to_tensor(np.load("data/cevio/weather.npy"))
+pairs = np.load("data/cevio/pairs.npy").astype(int)
 
 # images tensor with about 30000 samples leads to a libprotobuf error when
 # creating the dataset iterator

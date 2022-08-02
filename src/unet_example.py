@@ -6,6 +6,7 @@ import os
 import random
 
 # Third-party
+import mlflow
 import numpy as np
 import PIL
 from IPython.display import display
@@ -27,6 +28,7 @@ from tensorflow.keras.preprocessing.image import load_img
 # tar -xf annotations.tar.gz
 # Prepare paths of input images and target segmentation masks
 
+# os.chdir("/users/sadamov/PyProjects/aldernet/")
 input_dir = "images/"
 target_dir = "annotations/trimaps/"
 img_size = (160, 160)
@@ -190,9 +192,9 @@ callbacks = [
 ]
 
 # Train the model, doing validation at the end of each epoch.
-epochs = 25
+epochs = 1
 model.fit(train_gen, epochs=epochs, validation_data=val_gen, callbacks=callbacks)
-
+mlflow.keras.autolog()
 # Visualize predictions
 
 # Generate predictions for all images in the validation set
@@ -210,7 +212,7 @@ def display_mask(i):
 
 
 # Display results for validation image #10
-i = 15
+i = 10
 
 # Display input image
 display(Image(filename=val_input_img_paths[i]))
