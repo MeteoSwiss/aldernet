@@ -112,8 +112,7 @@ venv_*/
 
 # Project Specific
 code_yinghao
-outputs/map*
-outputs/my_awesome.gif
+outputs/*
 images
 annotations
 oxford_segmentation.h5

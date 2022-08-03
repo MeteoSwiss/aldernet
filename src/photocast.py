@@ -35,8 +35,8 @@ Path(run_path).mkdir(parents=True, exist_ok=True)
 # Profiling and Debugging
 
 # tf.profiler.experimental.server.start(6009)
-# tf.config.experimental_run_functions_eagerly(True)
-
+# tf.data.experimental.enable_debug_mode()
+tf.config.run_functions_eagerly(True)
 
 # Create Datasets
 
