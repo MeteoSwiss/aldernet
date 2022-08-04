@@ -14,9 +14,7 @@ import time
 # Third-party
 import keras
 import mlflow
-import numpy as np
 import tensorflow as tf
-from matplotlib import pyplot as plt
 from tensorflow.keras import layers
 from tensorflow.keras.constraints import Constraint
 from tensorflow.linalg import matvec
@@ -34,46 +32,6 @@ def tf_setup(memory_limit=8000):
         tf.config.set_logical_device_configuration(
             gpu, [tf.config.LogicalDeviceConfiguration(memory_limit=memory_limit)]
         )
-
-
-##########################
-
-
-def cutmix_maps(shape):
-
-    batch_size, height, width, channels = shape
-    maps = np.ones(shape)
-
-    for bb in range(batch_size):
-        r = np.sqrt(np.random.uniform())
-        w = int(width * r)
-        h = int(height * r)
-        x = np.random.randint(width)
-        y = np.random.randint(height)
-
-        x1 = np.clip(x - w // 2, 0, width)
-        y1 = np.clip(y - h // 2, 0, height)
-        x2 = np.clip(x + w // 2, 0, width)
-        y2 = np.clip(y + h // 2, 0, height)
-
-        maps[bb, y1:y2, x1:x2, :] = 0
-        if np.random.uniform() > 0.5:
-            maps[bb, :, :, :] = 1 - maps[bb, :, :, :]
-
-    return tf.convert_to_tensor(maps, dtype=tf.float32)
-
-
-def cutmix_validate(height, width):
-
-    maps = cutmix_maps([5, height, width, 1])
-    for bb in range(maps.shape[0]):
-        plt.imshow(maps[bb, :, :])
-        plt.show()
-
-    maps = cutmix_maps([10000, height, width, 1])
-    areas = tf.math.reduce_mean(maps, [1, 2])
-    plt.hist(areas.numpy())
-    plt.show()
 
 
 ##########################
@@ -179,12 +137,11 @@ noise_channels = 128
 
 def generator(height, width, weather_features):
 
-    weather_input = keras.Input(shape=weather_features * 2, name="weather-input")
-    weather = layers.RepeatVector(height * width)(weather_input)
-    weather = layers.Reshape((height, width, weather_features * 2))(weather)
-
-    image_input = keras.Input(shape=[height, width, 3], name="image-input")
-    inputs = layers.Concatenate(name="inputs-concat")([image_input, weather])
+    weather_input = keras.Input(
+        shape=[height, width, weather_features], name="weather-input"
+    )
+    image_input = keras.Input(shape=[height, width, 1], name="image-input")
+    inputs = layers.Concatenate(name="inputs-concat")([image_input, weather_input])
 
     block = cbr(filters[0], "pre-cbr-1")(inputs)
 
@@ -219,27 +176,21 @@ def generator(height, width, weather_features):
 
     block = cbr(filters[-1], "post-cbr-1")(block)
 
-    rgb = layers.Conv2D(
-        filters=3,
+    pollen = layers.Conv2D(
+        filters=1,
         kernel_size=1,
         padding="same",
         activation="tanh",
         kernel_constraint=SpectralNormalization(),
-        name="rgb-conv",
+        name="output",
     )(block)
 
-    return tf.keras.Model(inputs=[noise_input, image_input, weather_input], outputs=rgb)
+    return tf.keras.Model(
+        inputs=[noise_input, image_input, weather_input], outputs=pollen
+    )
 
 
 ##########################
-
-
-def load_jpeg(path):
-    image = tf.io.read_file(path)
-    jpeg = tf.image.decode_jpeg(image)
-    jpeg = tf.cast(jpeg, tf.float32)
-    jpeg = jpeg[:-10, :-10] / 127.5 - 1  # cut away black bars for old cameras
-    return jpeg
 
 
 def write_png(image, path):
@@ -258,66 +209,6 @@ bxe_loss = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 filters = [64, 128, 256, 512, 1024, 1024, 512, 768, 640, 448, 288, 352]
 interpolation = "nearest"
 
-
-def discriminator(height, width, weather_features):
-
-    weather_input = keras.Input(shape=weather_features * 2, name="weather-input")
-    weather = layers.RepeatVector(height * width)(weather_input)
-    weather = layers.Reshape((height, width, weather_features * 2))(weather)
-
-    image_a_input = keras.Input(shape=[height, width, 3], name="image_a-input")
-    image_b_input = keras.Input(shape=[height, width, 3], name="image_b-input")
-
-    inputs = layers.Concatenate(name="inputs-concat")(
-        [image_a_input, weather, image_b_input]
-    )
-
-    block = cbr(filters[0], "pre-cbr-1")(inputs)
-
-    u_skip_layers = [block]
-    for ll in range(1, len(filters) // 2):
-
-        block = down(filters[ll], "down_%s-down" % ll)(block)
-
-        # Collect U-Net skip connections
-        u_skip_layers.append(block)
-
-    label_global = layers.Conv2D(
-        filters=1,
-        kernel_size=1,
-        padding="same",
-        kernel_constraint=SpectralNormalization(),
-        name="label_global",
-    )(block)
-    u_skip_layers.pop()
-
-    for ll in range(len(filters) // 2, len(filters) - 1):
-
-        block = up(filters[ll], "up_%s-up" % (len(filters) - ll - 1))(block)
-
-        # Connect U-Net skip
-        block = layers.Concatenate(name="up_%s-concatenate" % (len(filters) - ll - 1))(
-            [block, u_skip_layers.pop()]
-        )
-
-    block = cbr(filters[-1], "post-cbr-1")(block)
-
-    label_pixel = layers.Conv2D(
-        filters=1,
-        kernel_size=1,
-        padding="same",
-        kernel_constraint=SpectralNormalization(),
-        name="label_pixel",
-    )(block)
-
-    return keras.Model(
-        inputs=[image_a_input, weather_input, image_b_input],
-        outputs=[label_global, label_pixel],
-    )
-
-
-bxe_loss = tf.keras.losses.BinaryCrossentropy(from_logits=True)
-
 # * https://www.tensorflow.org/tutorials/customization/custom_training_walkthrough
 # * Autodifferentiation vs. calculate training steps yourself
 # * L1-Loss (Median) absolute value difference statt RMSE (Mean) als Loss - pixelwise
@@ -331,34 +222,31 @@ def gan_step(
     generator,
     optimizer_gen,
     images_a,
-    weathers_a,
+    weather,
     images_b,
-    weathers_b,
-    summary_writer,
     step,
 ):
 
     noise = tf.random.normal([images_a.shape[0], noise_dim])
-    weathers = tf.concat([weathers_a, weathers_b], axis=1)
     with tf.GradientTape() as tape_gen:
-        generated = generator([noise, images_a, weathers])
+        generated = generator([noise, images_a, weather])
         gen_loss = tf.math.reduce_sum(tf.math.abs(generated - images_b))
-    gradients_gen = tape_gen.gradient(gen_loss, generator.trainable_variables)
+        gradients_gen = tape_gen.gradient(gen_loss, generator.trainable_variables)
     optimizer_gen.apply_gradients(zip(gradients_gen, generator.trainable_variables))
 
-    with summary_writer.as_default():
-        tf.summary.scalar("gen_loss", gen_loss, step=step)
-
     print(gen_loss.numpy(), flush=True)
+    print(images_a.shape, flush=True)
+    print(weather.shape, flush=True)
+    print(generated.shape, flush=True)
     mlflow.log_metric("Loss", gen_loss.numpy(), step=step.numpy())
 
 
-def train_gan(
-    generator, optimizer_gen, discriminator, optimizer_disc, dataset_train, run_path
-):
-    mlflow.set_experiment("test")
+###############################
+
+
+def train_gan(generator, optimizer_gen, dataset_train, run_path):
+    mlflow.set_experiment("Aldernet")
     mlflow.start_run()
-    summary_writer = tf.summary.create_file_writer(run_path)
     epoch = tf.Variable(1, dtype="int64")
     step = tf.Variable(1, dtype="int64")
 
@@ -367,8 +255,6 @@ def train_gan(
         step=step,
         generator=generator,
         optimizer_gen=optimizer_gen,
-        discriminator=discriminator,
-        optimizer_disc=optimizer_disc,
     )
     manager = tf.train.CheckpointManager(
         ckpt,
@@ -384,7 +270,11 @@ def train_gan(
 
     while True:
         start = time.time()
-        for images_a, weathers_a, images_b, weathers_b in dataset_train:
+        for (
+            images_a,
+            weather,
+            images_b,
+        ) in dataset_train:
 
             print(epoch.numpy(), "-", step.numpy(), flush=True)
 
@@ -392,22 +282,13 @@ def train_gan(
                 generator,
                 optimizer_gen,
                 images_a,
-                weathers_a,
+                weather,
                 images_b,
-                weathers_b,
-                summary_writer,
                 step,
             )
 
-            weathers = tf.concat([weathers_a, weathers_b], axis=1)
-
             noise_1 = tf.random.normal([images_a.shape[0], noise_dim])
-            generated_1 = generator([noise_1, images_a, weathers])
-
-            gen_l1 = tf.reduce_mean(tf.abs(images_b - generated_1))
-            with summary_writer.as_default():
-                tf.summary.scalar("gen_l1", gen_l1, step=step)
-
+            generated_1 = generator([noise_1, images_a, weather])
             viz = tf.concat([images_a[0], images_b[0], generated_1[0]], axis=1)
 
             write_png(
@@ -424,8 +305,9 @@ def train_gan(
 
         print(
             "Time taken for epoch {} is {} sec\n".format(
-                epoch.numpy(), time.time() - start, flush=True
-            )
+                epoch.numpy(), time.time() - start
+            ),
+            flush=True,
         )
         epoch.assign_add(1)
         manager.save()

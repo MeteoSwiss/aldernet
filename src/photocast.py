@@ -22,6 +22,8 @@ from photocast_utils import generator
 from photocast_utils import tf_setup
 from photocast_utils import train_gan
 
+os.chdir("/users/sadamov/PyProjects/aldernet/")
+
 tf_setup(26000)
 tf.random.set_seed(1)
 
@@ -35,8 +37,8 @@ Path(run_path).mkdir(parents=True, exist_ok=True)
 # Profiling and Debugging
 
 # tf.profiler.experimental.server.start(6009)
-# tf.config.experimental_run_functions_eagerly(True)
-
+# tf.data.experimental.enable_debug_mode()
+tf.config.run_functions_eagerly(True)
 
 # Create Datasets
 

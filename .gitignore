@@ -112,12 +112,12 @@ venv_*/
 
 # Project Specific
 code_yinghao
-outputs/map*
-outputs/my_awesome.gif
+outputs/*
 images
 annotations
 oxford_segmentation.h5
-data/cevio
+data
 mlruns
 run__
 src/photocast_utils.py-jvsc*.ipynb
+src/training_utils.py-jvsc*.ipynb

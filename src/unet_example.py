@@ -193,8 +193,8 @@ callbacks = [
 
 # Train the model, doing validation at the end of each epoch.
 epochs = 1
+mlflow.autolog()
 model.fit(train_gen, epochs=epochs, validation_data=val_gen, callbacks=callbacks)
-mlflow.keras.autolog()
 # Visualize predictions
 
 # Generate predictions for all images in the validation set
