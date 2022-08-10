@@ -104,7 +104,9 @@ weather_features = weather.shape[3]
 
 generator = generator(height, width, weather_features)
 # betas need to be floats, or checkpoint restoration fails
-optimizer_gen = tf.keras.optimizers.Adam(learning_rate=5e-5, beta_1=0.0, beta_2=0.9)
+optimizer_gen = tf.keras.optimizers.Adam(
+    learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08
+)
 
 with open(run_path + "/generator_summary.txt", "w") as handle:
     with redirect_stdout(handle):

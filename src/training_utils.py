@@ -207,7 +207,6 @@ bxe_loss = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
 
 filters = [64, 128, 256, 512, 1024, 1024, 512, 768, 640, 448, 288, 352]
-interpolation = "nearest"
 
 # * https://www.tensorflow.org/tutorials/customization/custom_training_walkthrough
 # * Autodifferentiation vs. calculate training steps yourself
