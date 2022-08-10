@@ -16,6 +16,7 @@ from pathlib import Path
 import numpy as np
 import tensorflow as tf
 import xarray as xr
+from scipy import interpolate
 
 # First-party
 from training_utils import experiment_path
@@ -47,8 +48,11 @@ batch_size = 40
 # data = xr.open_zarr("/scratch/sadamov/aldernet/data").set_coords(
 #     ("longitude", "latitude", "time", "step", "valid_time")
 # )
+# sys.stdout = open('outputfile', 'w')
+# print(np.argwhere(np.isnan(weather)))
+
 # data_reduced = data.isel(y=slice(450, 514), x=slice(500, 628))
-# # data_reduced = data.isel(time=slice(0, 10), y=slice(450, 455), x=slice(500, 505))
+# data_reduced = data_reduced.interpolate_na(dim="x", method="linear", fill_value="extrapolate")
 
 # del data
 
@@ -57,7 +61,7 @@ batch_size = 40
 # weather = data_reduced.drop_vars(
 #     ("CORY", "ALNU")).to_array().transpose(
 #         "time", "y", "x", "variable").to_numpy()
-# weather = np.delete(weather, [4, 7], axis=3)
+# # weather_test = np.delete(weather_test, [4, 7], axis=3)
 # min_val = weather.min(axis=(0, 1, 2), keepdims=True)
 # max_val = weather.max(axis=(0, 1, 2), keepdims=True)
 # weather = (weather - min_val) / (max_val - min_val)
@@ -72,13 +76,14 @@ weather = np.load("data/weather.npy")
 images_a = np.load("data/images_a.npy")
 images_b = np.load("data/images_b.npy")
 
+weather = weather[:, :, :, (2, 4, 22)]
+
+# weather.sum(axis=(0, 1, 2), keepdims=True)
+
 # images tensor with 1224 samples
 images_a = tf.convert_to_tensor(images_a)
 images_b = tf.convert_to_tensor(images_b)
 weather = tf.convert_to_tensor(weather)
-
-# sys.stdout = open('outputfile', 'w')
-# print(np.argwhere(np.isnan(weather)))
 
 # for i in range(1):
 #     data_reduced[list(data_reduced.keys())[i]].data.sum()

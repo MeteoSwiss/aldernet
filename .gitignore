@@ -121,3 +121,4 @@ mlruns
 run__
 src/photocast_utils.py-jvsc*.ipynb
 src/training_utils.py-jvsc*.ipynb
+outputfile
