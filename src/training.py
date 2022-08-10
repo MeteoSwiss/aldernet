@@ -44,18 +44,37 @@ tf.config.run_functions_eagerly(True)
 # Create Datasets
 batch_size = 40
 
-data = xr.open_zarr("/scratch/sadamov/aldernet/data").set_coords(
-    ("longitude", "latitude", "time", "step", "valid_time")
-)
-data_reduced = data.isel(y=slice(450, 514), x=slice(500, 628))
-pairs = np.load("data/cevio/pairs.npy").astype(int)
+# data = xr.open_zarr("/scratch/sadamov/aldernet/data").set_coords(
+#     ("longitude", "latitude", "time", "step", "valid_time")
+# )
+# data_reduced = data.isel(y=slice(450, 514), x=slice(500, 628))
+# # data_reduced = data.isel(time=slice(0, 10), y=slice(450, 455), x=slice(500, 505))
+
+# del data
+
+# images_a = np.log10(data_reduced.CORY.data[:, :, :, np.newaxis] + 1)
+# images_b = np.log10(data_reduced.ALNU.data[:, :, :, np.newaxis] + 1)
+# weather = data_reduced.drop_vars(
+#     ("CORY", "ALNU")).to_array().transpose(
+#         "time", "y", "x", "variable").to_numpy()
+# weather = np.delete(weather, [4, 7], axis=3)
+# min_val = weather.min(axis=(0, 1, 2), keepdims=True)
+# max_val = weather.max(axis=(0, 1, 2), keepdims=True)
+# weather = (weather - min_val) / (max_val - min_val)
+
+# del data_reduced
+
+# np.save("images_a.npy", images_a)
+# np.save("images_b.npy", images_b)
+# np.save("weather.npy", weather)
 
 weather = np.load("data/weather.npy")
-weather = np.delete(weather, [4, 7], axis=3)
+images_a = np.load("data/images_a.npy")
+images_b = np.load("data/images_b.npy")
 
 # images tensor with 1224 samples
-images_a = tf.convert_to_tensor(np.load("data/images_a.npy"))
-images_b = tf.convert_to_tensor(np.load("data/images_b.npy"))
+images_a = tf.convert_to_tensor(images_a)
+images_b = tf.convert_to_tensor(images_b)
 weather = tf.convert_to_tensor(weather)
 
 # sys.stdout = open('outputfile', 'w')
@@ -64,9 +83,6 @@ weather = tf.convert_to_tensor(weather)
 # for i in range(1):
 #     data_reduced[list(data_reduced.keys())[i]].data.sum()
 
-# np.save("images_a", data_reduced.ALNU.data[:, :, :, np.newaxis])
-# np.save("images_b", data_reduced.CORY.data[:, :, :, np.newaxis])
-# np.save("weather", data_reduced.drop_vars(("CORY", "ALNU")).to_array().to_numpy())
 
 dataset_train = (
     tf.data.Dataset.from_tensor_slices((images_a, weather, images_b))

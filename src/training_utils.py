@@ -235,9 +235,6 @@ def gan_step(
     optimizer_gen.apply_gradients(zip(gradients_gen, generator.trainable_variables))
 
     print(gen_loss.numpy(), flush=True)
-    print(images_a.shape, flush=True)
-    print(weather.shape, flush=True)
-    print(generated.shape, flush=True)
     mlflow.log_metric("Loss", gen_loss.numpy(), step=step.numpy())
 
 
