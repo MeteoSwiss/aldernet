@@ -10,6 +10,7 @@ To create realistic Images of Pollen Surface Concentration Maps.
 # Standard library
 import os
 import time
+from pathlib import Path
 
 # Third-party
 import keras
@@ -198,7 +199,7 @@ def compile_generator(height, width, weather_features):
 
 
 def write_png(image, path):
-    fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(10, 2.1), dpi=150)
     ax1.imshow(image[0][:, :, 0], cmap="viridis")
     ax2.imshow(image[1][:, :, 0], cmap="viridis")
     ax3.imshow(image[2][:, :, 0], cmap="viridis")
@@ -209,7 +210,8 @@ def write_png(image, path):
     ax2.axes.set_title("Target")
     ax3.axes.set_title("Prediction")
     plt.tight_layout()
-    plt.savefig(path)
+    plt.subplots_adjust(top=0.85)
+    plt.savefig("test.png")
 
 
 ##########################
@@ -259,6 +261,7 @@ def train_model(
         mlflow.set_experiment("Aldernet")
         mlflow.set_tracking_uri("mlruns")
         tune_trial = tune.get_trial_name() + "/"
+        Path(run_path + "/viz/" + tune_trial).mkdir(parents=True, exist_ok=True)
     else:
         tune_trial = ""
     epoch = tf.Variable(1, dtype="int64")
@@ -326,7 +329,7 @@ def train_model(
 
             noise_1 = tf.random.normal([images_a.shape[0], noise_dim])
             generated_1 = generator([noise_1, images_a, weather])
-            viz = [images_a[0], images_b[0], generated_1[0]]
+            viz = (images_a[0], images_b[0], generated_1[0])
 
             write_png(
                 viz,
