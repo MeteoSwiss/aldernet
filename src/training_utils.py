@@ -14,11 +14,15 @@ import time
 # Third-party
 import keras
 import mlflow
+import ray
 import tensorflow as tf
+from ray import tune
 from tensorflow.keras import layers
 from tensorflow.keras.constraints import Constraint
 from tensorflow.linalg import matvec
 from tensorflow.nn import l2_normalize
+
+# from ray.tune.integration.mlflow import mlflow_mixin
 
 experiment_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
@@ -135,7 +139,7 @@ noise_dim = 100
 noise_channels = 128
 
 
-def generator(height, width, weather_features):
+def compile_generator(height, width, weather_features):
 
     weather_input = keras.Input(
         shape=[height, width, weather_features], name="weather-input"
@@ -216,35 +220,50 @@ filters = [64, 128, 256, 512, 1024, 1024, 512, 768, 640, 448, 288, 352]
 # * Weather input was simply zero mean and unit variance
 
 
-@tf.function
-def gan_step(
-    generator,
-    optimizer_gen,
-    images_a,
-    weather,
-    images_b,
-    step,
-):
+# @tf.function
+# @mlflow_mixin
+def gan_step(generator, optimizer_gen, images_a, weather, images_b, step, config):
 
     noise = tf.random.normal([images_a.shape[0], noise_dim])
     with tf.GradientTape() as tape_gen:
         generated = generator([noise, images_a, weather])
-        gen_loss = tf.math.reduce_sum(tf.math.abs(generated - images_b))
-        gradients_gen = tape_gen.gradient(gen_loss, generator.trainable_variables)
+        loss = tf.math.reduce_sum(tf.math.abs(generated - images_b))
+        # loss = tf.math.reduce_mean(tf.math.squared_difference(generated, images_b))
+        gradients_gen = tape_gen.gradient(loss, generator.trainable_variables)
+
     optimizer_gen.apply_gradients(zip(gradients_gen, generator.trainable_variables))
+    tune.report(iterations=step, Loss=loss.numpy())
 
-    print(gen_loss.numpy(), flush=True)
-    mlflow.log_metric("Loss", gen_loss.numpy(), step=step.numpy())
-
-
-###############################
+    return {"Loss": loss}
 
 
-def train_gan(generator, optimizer_gen, dataset_train, run_path):
+def train_model(config, generator=None, dataset_train=None, run_path=None):
     mlflow.set_experiment("Aldernet")
-    mlflow.start_run()
+    mlflow.set_tracking_uri("mlruns")
+    # mlflow.start_run()
     epoch = tf.Variable(1, dtype="int64")
     step = tf.Variable(1, dtype="int64")
+
+    dataset_train = (
+        tf.data.Dataset.from_tensor_slices(
+            (
+                dataset_train["images_a"],
+                dataset_train["weather"],
+                dataset_train["images_b"],
+            )
+        )
+        .shuffle(10000)
+        .batch(config["batch_size"])
+        .prefetch(tf.data.AUTOTUNE)
+    )
+
+    # betas need to be floats, or checkpoint restoration fails
+    optimizer_gen = tf.keras.optimizers.Adam(
+        learning_rate=config["learning_rate"],
+        beta_1=config["beta_1"],
+        beta_2=config["beta_2"],
+        epsilon=1e-08,
+    )
 
     ckpt = tf.train.Checkpoint(
         epoch=epoch,
@@ -275,12 +294,7 @@ def train_gan(generator, optimizer_gen, dataset_train, run_path):
             print(epoch.numpy(), "-", step.numpy(), flush=True)
 
             gan_step(
-                generator,
-                optimizer_gen,
-                images_a,
-                weather,
-                images_b,
-                step,
+                generator, optimizer_gen, images_a, weather, images_b, step, config
             )
 
             noise_1 = tf.random.normal([images_a.shape[0], noise_dim])
@@ -291,6 +305,8 @@ def train_gan(generator, optimizer_gen, dataset_train, run_path):
                 viz,
                 run_path
                 + "/viz/"
+                + tune.get_trial_name()
+                + "/"
                 + str(epoch.numpy())
                 + "-"
                 + str(step.numpy())
