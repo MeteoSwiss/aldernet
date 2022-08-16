@@ -13,8 +13,8 @@ import time
 
 # Third-party
 import keras
+import matplotlib.pyplot as plt
 import mlflow
-import ray
 import tensorflow as tf
 from ray import tune
 from tensorflow.keras import layers
@@ -198,18 +198,23 @@ def compile_generator(height, width, weather_features):
 
 
 def write_png(image, path):
-    image = (image + 1) * 127.5
-    image = tf.cast(image, tf.uint8)
-    png = tf.image.encode_png(image)
-    tf.io.write_file(path, png)
-
-
-bxe_loss = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+    ax1.imshow(image[0][:, :, 0], cmap="viridis")
+    ax2.imshow(image[1][:, :, 0], cmap="viridis")
+    ax3.imshow(image[2][:, :, 0], cmap="viridis")
+    for ax in (ax1, ax2, ax3):
+        ax.axes.xaxis.set_visible(False)
+        ax.axes.yaxis.set_visible(False)
+    ax1.axes.set_title("Input")
+    ax2.axes.set_title("Target")
+    ax3.axes.set_title("Prediction")
+    plt.tight_layout()
+    plt.savefig(path)
 
 
 ##########################
 
-
+bxe_loss = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 filters = [64, 128, 256, 512, 1024, 1024, 512, 768, 640, 448, 288, 352]
 
 # * https://www.tensorflow.org/tutorials/customization/custom_training_walkthrough
@@ -222,7 +227,16 @@ filters = [64, 128, 256, 512, 1024, 1024, 512, 768, 640, 448, 288, 352]
 
 # @tf.function
 # @mlflow_mixin
-def gan_step(generator, optimizer_gen, images_a, weather, images_b, step, config):
+def gan_step(
+    generator,
+    optimizer_gen,
+    images_a,
+    weather,
+    images_b,
+    step,
+    config,
+    tune_with_ray=True,
+):
 
     noise = tf.random.normal([images_a.shape[0], noise_dim])
     with tf.GradientTape() as tape_gen:
@@ -232,15 +246,21 @@ def gan_step(generator, optimizer_gen, images_a, weather, images_b, step, config
         gradients_gen = tape_gen.gradient(loss, generator.trainable_variables)
 
     optimizer_gen.apply_gradients(zip(gradients_gen, generator.trainable_variables))
-    tune.report(iterations=step, Loss=loss.numpy())
+    if tune_with_ray:
+        tune.report(iterations=step, Loss=loss.numpy())
 
     return {"Loss": loss}
 
 
-def train_model(config, generator=None, dataset_train=None, run_path=None):
-    mlflow.set_experiment("Aldernet")
-    mlflow.set_tracking_uri("mlruns")
-    # mlflow.start_run()
+def train_model(
+    config, generator=None, dataset_train=None, run_path=None, tune_with_ray=True
+):
+    if tune_with_ray:
+        mlflow.set_experiment("Aldernet")
+        mlflow.set_tracking_uri("mlruns")
+        tune_trial = tune.get_trial_name() + "/"
+    else:
+        tune_trial = ""
     epoch = tf.Variable(1, dtype="int64")
     step = tf.Variable(1, dtype="int64")
 
@@ -294,19 +314,25 @@ def train_model(config, generator=None, dataset_train=None, run_path=None):
             print(epoch.numpy(), "-", step.numpy(), flush=True)
 
             gan_step(
-                generator, optimizer_gen, images_a, weather, images_b, step, config
+                generator,
+                optimizer_gen,
+                images_a,
+                weather,
+                images_b,
+                step,
+                config,
+                tune_with_ray,
             )
 
             noise_1 = tf.random.normal([images_a.shape[0], noise_dim])
             generated_1 = generator([noise_1, images_a, weather])
-            viz = tf.concat([images_a[0], images_b[0], generated_1[0]], axis=1)
+            viz = [images_a[0], images_b[0], generated_1[0]]
 
             write_png(
                 viz,
                 run_path
                 + "/viz/"
-                + tune.get_trial_name()
-                + "/"
+                + tune_trial
                 + str(epoch.numpy())
                 + "-"
                 + str(step.numpy())

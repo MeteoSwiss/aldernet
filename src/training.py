@@ -21,14 +21,6 @@ import xarray as xr
 from ray import tune
 from ray.tune.integration.mlflow import MLflowLoggerCallback
 
-ray.shutdown()
-ray.init(
-    runtime_env={
-        "working_dir": "/users/sadamov/PyProjects/aldernet/",
-        "excludes": ["data/", "run__/", ".git/"],
-        #   "py_modules": [training_utils]
-    }
-)
 os.chdir("/users/sadamov/PyProjects/aldernet/")
 
 # First-party
@@ -49,7 +41,7 @@ run_path = (
     experiment_path + "/run__/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 )
 
-Path(run_path).mkdir(parents=True, exist_ok=True)
+Path(run_path + "/viz").mkdir(parents=True, exist_ok=True)
 
 
 # Profiling and Debugging
@@ -137,27 +129,48 @@ tf.keras.utils.plot_model(
 
 # Train
 
-config = {}
-config["beta_1"] = 0.9
-config["beta_2"] = 0.999
-config["learning_rate"] = 0.00001
+# Use grid search functionality by ray tune and log experiment
+tune_with_ray = True
 
-tune.run(
-    tune.with_parameters(
-        train_model, generator=generator, dataset_train=dataset_train, run_path=run_path
-    ),
-    metric="Loss",
-    num_samples=8,
-    stop={"training_iteration": 120},
-    config={
-        # define search space here
-        "learning_rate": tune.choice([0.0000001, 0.0000005, 0.000001]),
-        "beta_1": tune.choice([0.8, 0.85, 0.9]),
-        "beta_2": tune.choice([0.95, 0.97, 0.999]),
-        "batch_size": tune.choice([10, 20, 40]),
-    },
-    resources_per_trial={"gpu": 1},
-    callbacks=[MLflowLoggerCallback(experiment_name="Aldernet", save_artifact=True)],
-)
 
-# train_model(config, generator, dataset_train, run_path)
+if tune_with_ray:
+    ray.shutdown()
+    ray.init(
+        runtime_env={
+            "working_dir": "/users/sadamov/PyProjects/aldernet/",
+            "excludes": ["data/", "run__/", ".git/"],
+            #   "py_modules": [training_utils]
+        }
+    )
+
+    tune.run(
+        tune.with_parameters(
+            train_model,
+            generator=generator,
+            dataset_train=dataset_train,
+            run_path=run_path,
+            tune_with_ray=tune_with_ray,
+        ),
+        metric="Loss",
+        num_samples=8,
+        stop={"training_iteration": 120},
+        config={
+            # define search space here
+            "learning_rate": tune.choice([0.0000001, 0.0000005, 0.000001]),
+            "beta_1": tune.choice([0.8, 0.85, 0.9]),
+            "beta_2": tune.choice([0.95, 0.97, 0.999]),
+            "batch_size": tune.choice([10, 20, 40]),
+        },
+        resources_per_trial={"gpu": 1},
+        callbacks=[
+            MLflowLoggerCallback(experiment_name="Aldernet", save_artifact=True)
+        ],
+    )
+else:
+    config = {}
+    config["beta_1"] = 0.85
+    config["beta_2"] = 0.999
+    config["learning_rate"] = 0.000001
+    config["batch_size"] = 20
+
+    train_model(config, generator, dataset_train, run_path, tune_with_ray)
