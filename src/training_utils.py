@@ -16,6 +16,7 @@ from pathlib import Path
 import keras
 import matplotlib.pyplot as plt
 import mlflow
+import numpy as np
 import tensorflow as tf
 from ray import tune
 from tensorflow.keras import layers
@@ -23,20 +24,18 @@ from tensorflow.keras.constraints import Constraint
 from tensorflow.linalg import matvec
 from tensorflow.nn import l2_normalize
 
-# from ray.tune.integration.mlflow import mlflow_mixin
-
-experiment_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-
 ##########################
 
 
-def tf_setup(memory_limit=8000):
+def tf_setup():
 
-    gpus = tf.config.list_physical_devices("GPU")
-    for gpu in gpus:
-        tf.config.set_logical_device_configuration(
-            gpu, [tf.config.LogicalDeviceConfiguration(memory_limit=memory_limit)]
-        )
+    gpus = tf.config.experimental.list_physical_devices("GPU")
+    if gpus:
+        try:
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+        except RuntimeError as e:
+            print(e)
 
 
 ##########################
@@ -136,16 +135,14 @@ def up(filters, name=None):
 
 
 filters = [64, 128, 256, 512, 1024, 1024, 512, 768, 640, 448, 288, 352]
-noise_dim = 100
-noise_channels = 128
 
 
 def compile_generator(height, width, weather_features):
 
     weather_input = keras.Input(
-        shape=[height, width, weather_features], name="weather-input"
+        shape=[height, width, weather_features], name="weather_input"
     )
-    image_input = keras.Input(shape=[height, width, 1], name="image-input")
+    image_input = keras.Input(shape=[height, width, 1], name="image_input")
     inputs = layers.Concatenate(name="inputs-concat")([image_input, weather_input])
 
     block = cbr(filters[0], "pre-cbr-1")(inputs)
@@ -158,16 +155,8 @@ def compile_generator(height, width, weather_features):
         # Collect U-Net skip connections
         u_skip_layers.append(block)
 
-    noise_input = keras.Input(shape=noise_dim, name="noise-input")
     height = block.shape[1]
     width = block.shape[2]
-    noise = layers.Dense(
-        height * width * noise_channels,
-        # kernel_constraint=SpectralNormalization()
-    )(noise_input)
-    noise = layers.Reshape((height, width, -1))(noise)
-
-    block = layers.Concatenate(name="add-noise")([block, noise])
     u_skip_layers.pop()
 
     for ll in range(len(filters) // 2, len(filters) - 1):
@@ -190,28 +179,34 @@ def compile_generator(height, width, weather_features):
         name="output",
     )(block)
 
-    return tf.keras.Model(
-        inputs=[noise_input, image_input, weather_input], outputs=pollen
-    )
+    return tf.keras.Model(inputs=[image_input, weather_input], outputs=pollen)
 
 
 ##########################
 
 
-def write_png(image, path):
-    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(10, 2.1), dpi=150)
-    ax1.imshow(image[0][:, :, 0], cmap="viridis")
-    ax2.imshow(image[1][:, :, 0], cmap="viridis")
-    ax3.imshow(image[2][:, :, 0], cmap="viridis")
-    for ax in (ax1, ax2, ax3):
-        ax.axes.xaxis.set_visible(False)
-        ax.axes.yaxis.set_visible(False)
-    ax1.axes.set_title("Input")
-    ax2.axes.set_title("Target")
-    ax3.axes.set_title("Prediction")
-    plt.tight_layout()
-    plt.subplots_adjust(top=0.85)
-    plt.savefig("test.png")
+def write_png(image, path, pretty):
+
+    if pretty:
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(10, 2.1), dpi=150)
+        ax1.imshow(image[0][:, :, 0], cmap="viridis")
+        ax2.imshow(image[1][:, :, 0], cmap="viridis")
+        ax3.imshow(image[2][:, :, 0], cmap="viridis")
+        for ax in (ax1, ax2, ax3):
+            ax.axes.xaxis.set_visible(False)
+            ax.axes.yaxis.set_visible(False)
+        ax1.axes.set_title("Input")
+        ax2.axes.set_title("Target")
+        ax3.axes.set_title("Prediction")
+        plt.tight_layout()
+        plt.subplots_adjust(top=0.85)
+        plt.savefig(path)
+        plt.close(fig)
+    else:
+        image = tf.concat(image, axis=1) * 10
+        image = tf.cast(image, tf.uint8)
+        png = tf.image.encode_png(image)
+        tf.io.write_file(path, png)
 
 
 ##########################
@@ -227,31 +222,18 @@ filters = [64, 128, 256, 512, 1024, 1024, 512, 768, 640, 448, 288, 352]
 # * Weather input was simply zero mean and unit variance
 
 
-# @tf.function
-# @mlflow_mixin
-def gan_step(
-    generator,
-    optimizer_gen,
-    images_a,
-    weather,
-    images_b,
-    step,
-    config,
-    tune_with_ray=True,
-):
+# @tf.function(jit_compile=True)
+def gan_step(generator, optimizer_gen, images_a, weather, images_b):
 
-    noise = tf.random.normal([images_a.shape[0], noise_dim])
     with tf.GradientTape() as tape_gen:
-        generated = generator([noise, images_a, weather])
+        generated = generator([images_a, weather])
         loss = tf.math.reduce_sum(tf.math.abs(generated - images_b))
         # loss = tf.math.reduce_mean(tf.math.squared_difference(generated, images_b))
         gradients_gen = tape_gen.gradient(loss, generator.trainable_variables)
 
     optimizer_gen.apply_gradients(zip(gradients_gen, generator.trainable_variables))
-    if tune_with_ray:
-        tune.report(iterations=step, Loss=loss.numpy())
 
-    return {"Loss": loss}
+    return loss
 
 
 def train_model(
@@ -314,21 +296,12 @@ def train_model(
             images_b,
         ) in dataset_train:
 
-            print(epoch.numpy(), "-", step.numpy(), flush=True)
+            if not tune_with_ray:
+                print(epoch.numpy(), "-", step.numpy(), flush=True)
 
-            gan_step(
-                generator,
-                optimizer_gen,
-                images_a,
-                weather,
-                images_b,
-                step,
-                config,
-                tune_with_ray,
-            )
+            loss = gan_step(generator, optimizer_gen, images_a, weather, images_b)
 
-            noise_1 = tf.random.normal([images_a.shape[0], noise_dim])
-            generated_1 = generator([noise_1, images_a, weather])
+            generated_1 = generator([images_a, weather])
             viz = (images_a[0], images_b[0], generated_1[0])
 
             write_png(
@@ -340,6 +313,7 @@ def train_model(
                 + "-"
                 + str(step.numpy())
                 + ".png",
+                pretty=True,
             )
 
             step.assign_add(1)
@@ -350,5 +324,9 @@ def train_model(
             ),
             flush=True,
         )
+        if not tune_with_ray:
+            manager.save()
+        if tune_with_ray:
+            tune.report(iterations=step, Loss=loss.numpy())
         epoch.assign_add(1)
-        manager.save()
+    return {"Loss": loss}

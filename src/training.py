@@ -21,20 +21,23 @@ import xarray as xr
 from ray import tune
 from ray.tune.integration.mlflow import MLflowLoggerCallback
 
-os.chdir("/users/sadamov/PyProjects/aldernet/")
+# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+# os.environ["TF_GPU_ALLOCATOR"]="cuda_malloc_async"
 
+
+os.chdir("/users/sadamov/PyProjects/aldernet/")
+experiment_path = os.getcwd()
+
+# try:
 # First-party
 # import training_utils
-try:
-    # First-party
-    from training_utils import compile_generator
-    from training_utils import experiment_path
-    from training_utils import tf_setup
-    from training_utils import train_model
-except Exception:
-    execfile("src/training_utils.py")
+#     from training_utils import compile_generator
+#     from training_utils import tf_setup
+#     from training_utils import train_model
+# except Exception:
+execfile("src/training_utils.py")
 
-tf_setup(26000)
+tf_setup()
 tf.random.set_seed(1)
 
 run_path = (
@@ -43,74 +46,53 @@ run_path = (
 
 Path(run_path + "/viz").mkdir(parents=True, exist_ok=True)
 
-
 # Profiling and Debugging
-
 # tf.profiler.experimental.server.start(6009)
 # tf.data.experimental.enable_debug_mode()
-tf.config.run_functions_eagerly(True)
 
-# data = xr.open_zarr("/scratch/sadamov/aldernet/data").set_coords(
-#     ("longitude", "latitude", "time", "step", "valid_time")
-# )
-# sys.stdout = open('outputfile', 'w')
-# print(np.argwhere(np.isnan(weather)))
+update_input_data = True
+if update_input_data:
+    # Data Import
+    data = xr.open_zarr("/scratch/sadamov/aldernet/faulty/data2022").set_coords(
+        ("longitude", "latitude", "time", "step", "valid_time")
+    )
 
-# data_reduced = data.isel(y=slice(450, 514), x=slice(500, 628))
-# data_reduced = data_reduced.interpolate_na(dim="x", method="linear", fill_value="extrapolate")
+    data_reduced = data.isel(y=slice(450, 514), x=slice(500, 628))
 
-# del data
+    sys.stdout = open("outputfile", "w")
+    print(np.argwhere(np.isnan(data_reduced)))
+    data_reduced = data_reduced.interpolate_na(
+        dim="x", method="linear", fill_value="extrapolate"
+    )
 
-# images_a = np.log10(data_reduced.CORY.data[:, :, :, np.newaxis] + 1)
-# images_b = np.log10(data_reduced.ALNU.data[:, :, :, np.newaxis] + 1)
-# weather = data_reduced.drop_vars(
-#     ("CORY", "ALNU")).to_array().transpose(
-#         "time", "y", "x", "variable").to_numpy()
-# # weather_test = np.delete(weather_test, [4, 7], axis=3)
-# min_val = weather.min(axis=(0, 1, 2), keepdims=True)
-# max_val = weather.max(axis=(0, 1, 2), keepdims=True)
-# weather = (weather - min_val) / (max_val - min_val)
+    del data
 
-# del data_reduced
+    images_a = data_reduced.CORY.data[:, :, :, np.newaxis]
+    images_b = data_reduced.ALNU.data[:, :, :, np.newaxis]
+    weather = (
+        data_reduced.drop_vars(("CORY", "ALNU"))
+        .to_array()
+        .transpose("time", "y", "x", "variable")
+        .to_numpy()
+    )
 
-# np.save("images_a.npy", images_a)
-# np.save("images_b.npy", images_b)
-# np.save("weather.npy", weather)
+    for arr in (images_a, images_b, weather):
+        min_val = arr.min(axis=(0, 1, 2), keepdims=True)
+        max_val = arr.max(axis=(0, 1, 2), keepdims=True)
+        arr = (arr - min_val) / (max_val - min_val)
+
+    del data_reduced
+
+    np.save("images_a.npy", images_a)
+    np.save("images_b.npy", images_b)
+    np.save("weather.npy", weather)
 
 weather = np.load("data/weather.npy")
-images_a = 10 ** np.load("data/images_a.npy") - 1
-images_b = 10 ** np.load("data/images_b.npy") - 1
-
 # weather = weather[:, :, :, (2, 4, 22)]
-
-# weather.sum(axis=(0, 1, 2), keepdims=True)
-
-# images tensor with 1224 samples
-# images_a = tf.convert_to_tensor(images_a)
-# images_b = tf.convert_to_tensor(images_b)
-# weather = tf.convert_to_tensor(weather)
-
-# for i in range(1):
-#     data_reduced[list(data_reduced.keys())[i]].data.sum()
-
+images_a = np.load("data/images_a.npy")
+images_b = np.load("data/images_b.npy")
 
 dataset_train = {"images_a": images_a, "weather": weather, "images_b": images_b}
-
-# dataset_train = (
-#         tf.data.Dataset.from_tensor_slices((dataset_train["images_a"],
-#                                             dataset_train["weather"],
-#                                             dataset_train["images_b"]))
-#         .shuffle(40000)
-#         .batch(40)
-#         .prefetch(tf.data.AUTOTUNE)
-#     )
-
-# dataset_train = (
-#     tf.data.Dataset.from_tensor_slices((images_a, weather, images_b))
-#     .shuffle(40000)
-#     .batch(40)
-#     .prefetch(tf.data.AUTOTUNE)
-# )
 
 # Model
 
@@ -129,17 +111,16 @@ tf.keras.utils.plot_model(
 
 # Train
 
-# Use grid search functionality by ray tune and log experiment
+# Use hyperparameter search functionality by ray tune and log experiment
 tune_with_ray = True
-
 
 if tune_with_ray:
     ray.shutdown()
     ray.init(
         runtime_env={
             "working_dir": "/users/sadamov/PyProjects/aldernet/",
-            "excludes": ["data/", "run__/", ".git/"],
-            #   "py_modules": [training_utils]
+            "excludes": ["data/", "run__/", ".git/", "images/"],
+            # "py_modules": ["/users/sadamov/PyProjects/aldernet/src/training_utils.py"]
         }
     )
 
@@ -153,10 +134,10 @@ if tune_with_ray:
         ),
         metric="Loss",
         num_samples=8,
-        stop={"training_iteration": 120},
+        stop={"training_iteration": 1},
         config={
             # define search space here
-            "learning_rate": tune.choice([0.0000001, 0.0000005, 0.000001]),
+            "learning_rate": tune.choice([0.0001, 0.0005, 0.001, 0.005]),
             "beta_1": tune.choice([0.8, 0.85, 0.9]),
             "beta_2": tune.choice([0.95, 0.97, 0.999]),
             "batch_size": tune.choice([10, 20, 40]),
@@ -170,7 +151,7 @@ else:
     config = {}
     config["beta_1"] = 0.85
     config["beta_2"] = 0.999
-    config["learning_rate"] = 0.000001
+    config["learning_rate"] = 0.005
     config["batch_size"] = 20
 
     train_model(config, generator, dataset_train, run_path, tune_with_ray)
