@@ -1,4 +1,4 @@
-"""Create a Zarr Archive based on Cosmo 2022 Data."""
+"""Create a Zarr Archive based on Cosmo 2020 Data."""
 
 # Standard library
 import glob
@@ -8,7 +8,7 @@ import os
 import cfgrib
 
 # Remove existing zarr archive
-os.system("rm -r /scratch/sadamov/aldernet/data2022")
+os.system("rm -r /scratch/sadamov/aldernet/data2020")
 
 # Variables to be extracted from surface-level GRIB file
 # Unfortunately, all variables have to be read first (metadata only - lazily),
@@ -24,25 +24,9 @@ var_selection = [
     "QG",
     "PP",
     "CLC",
-    "CORY",
-    "ALNU",
     "ALB_DIF",
     "ALB_RAD",
-    "ALNUfr",
     "CLCT",
-    "CORYctsum",
-    "CORYfe",
-    "CORYfr",
-    "CORYhcem",
-    "CORYreso",
-    "CORYress",
-    "CORYrprec",
-    "CORYsaisa",
-    "CORYsaisn",
-    "CORYsdes",
-    "CORYtthre",
-    "CORYtthrs",
-    "CORYtune",
     "DPSDT",
     "DURSUN",
     "FIS",
@@ -68,22 +52,31 @@ var_selection = [
 ]
 var_selection.sort()
 
-path = "/store/s83/osm/KENDA-1/ANA22/det/"
-files = list(set(glob.glob(path + "*")) - set(glob.glob(path + "*.*")))
-files.sort()
-files_red = files[39 * 24 + 1 : 90 * 24]
-# files_red = files[39 * 24 + 1 : 39 * 24 + 4]
+path = "/store/s83/osm/KENDA-1/ANA20/det/"
+files_weather = list(set(glob.glob(path + "*")) - set(glob.glob(path + "*.*")))
+files_weather.sort()
+files_weather = files_weather[0 : 90 * 24]
+
+files_cory = glob.glob(
+    "/store/mch/msopr/sadamov/wd/20_cory_tuning_v3/**/lfff00*0000", recursive=True
+)
+files_cory.sort()
+
+files_alnu = glob.glob(
+    "/store/mch/msopr/sadamov/wd/20_alnu_tuning_v3/**/lfff00*0000", recursive=True
+)
+files_alnu.sort()
 
 ds_surface = (
     cfgrib.open_dataset(
-        path + "laf2022020900",
+        path + "laf2020010100",
         encode_cf=("time", "geography", "vertical"),
         backend_kwargs={"filter_by_keys": {"dataType": "fc"}},
     )
     .expand_dims({"valid_time": 1})
     .merge(
         cfgrib.open_dataset(
-            path + "laf2022020900",
+            path + "laf2020010100",
             encode_cf=("time", "geography", "vertical"),
             backend_kwargs={"filter_by_keys": {"dataType": "an"}},
         ).expand_dims({"valid_time": 1})
@@ -93,7 +86,7 @@ ds_surface = (
 
 ds_u = (
     cfgrib.open_dataset(
-        path + "laf2022020900",
+        path + "laf2020010100",
         encode_cf=("time", "geography", "vertical"),
         backend_kwargs={"filter_by_keys": {"shortName": "U"}},
     )
@@ -103,7 +96,7 @@ ds_u = (
 
 ds_v = (
     cfgrib.open_dataset(
-        path + "laf2022020900",
+        path + "laf2020010100",
         encode_cf=("time", "geography", "vertical"),
         backend_kwargs={"filter_by_keys": {"shortName": "V"}},
     )
@@ -111,28 +104,46 @@ ds_v = (
     .expand_dims({"valid_time": 1})
 )
 
+ds_cory = (
+    cfgrib.open_dataset(files_cory[0], encode_cf=("time", "geography", "vertical"))
+    .sel({"generalVerticalLayer": 80})
+    .expand_dims({"valid_time": 1})
+)
+
+ds_alnu = (
+    cfgrib.open_dataset(files_alnu[0], encode_cf=("time", "geography", "vertical"))
+    .sel({"generalVerticalLayer": 80})[["ALNU", "ALNUfr"]]
+    .expand_dims({"valid_time": 1})
+)
+
 ds_surface = ds_surface.merge(ds_u, compat="override")
 ds_surface = ds_surface.merge(ds_v, compat="override")
+ds_surface = ds_surface.merge(ds_cory, compat="override")
+ds_surface = ds_surface.merge(ds_alnu, compat="override")
 
 keys = list(ds_surface.keys())
 keys.sort()
-ds_surface = ds_surface[keys]
+ds_surface[keys]
 
-ds_surface.to_zarr("/scratch/sadamov/aldernet/data2022")
+ds_surface.to_zarr("/scratch/sadamov/aldernet/data2020")
 
-for file in files_red:
-    print("CURRENT FILE:", file, flush=True)
+for file_weather, file_cory, file_alnu in zip(
+    files_weather[1:], files_cory[1:], files_alnu[1:]
+):
+    print("CURRENT Weather FILE:", file_weather, flush=True)
+    print("CURRENT Hazel FILE:", file_cory, flush=True)
+    print("CURRENT Alder FILE:", file_alnu, flush=True)
 
     ds_surface = (
         cfgrib.open_dataset(
-            file,
+            file_weather,
             encode_cf=("time", "geography", "vertical"),
             backend_kwargs={"filter_by_keys": {"dataType": "fc"}},
         )
         .expand_dims({"valid_time": 1})
         .merge(
             cfgrib.open_dataset(
-                file,
+                file_weather,
                 encode_cf=("time", "geography", "vertical"),
                 backend_kwargs={"filter_by_keys": {"dataType": "an"}},
             ).expand_dims({"valid_time": 1})
@@ -142,7 +153,7 @@ for file in files_red:
 
     ds_u = (
         cfgrib.open_dataset(
-            file,
+            file_weather,
             encode_cf=("time", "geography", "vertical"),
             backend_kwargs={"filter_by_keys": {"shortName": "U"}},
         )
@@ -152,7 +163,7 @@ for file in files_red:
 
     ds_v = (
         cfgrib.open_dataset(
-            file,
+            file_weather,
             encode_cf=("time", "geography", "vertical"),
             backend_kwargs={"filter_by_keys": {"shortName": "V"}},
         )
@@ -160,13 +171,27 @@ for file in files_red:
         .expand_dims({"valid_time": 1})
     )
 
+    ds_cory = (
+        cfgrib.open_dataset(file_cory, encode_cf=("time", "geography", "vertical"))
+        .sel({"generalVerticalLayer": 80})
+        .expand_dims({"valid_time": 1})
+    )
+
+    ds_alnu = (
+        cfgrib.open_dataset(file_alnu, encode_cf=("time", "geography", "vertical"))
+        .sel({"generalVerticalLayer": 80})[["ALNU", "ALNUfr"]]
+        .expand_dims({"valid_time": 1})
+    )
+
     ds_surface = ds_surface.merge(ds_u, compat="override")
     ds_surface = ds_surface.merge(ds_v, compat="override")
+    ds_surface = ds_surface.merge(ds_cory, compat="override")
+    ds_surface = ds_surface.merge(ds_alnu, compat="override")
 
     keys = list(ds_surface.keys())
     keys.sort()
-    ds_surface = ds_surface[keys]
+    ds_surface[keys]
 
     ds_surface.to_zarr(
-        "/scratch/sadamov/aldernet/data2022", mode="a", append_dim="valid_time"
+        "/scratch/sadamov/aldernet/data2020", mode="a", append_dim="valid_time"
     )
