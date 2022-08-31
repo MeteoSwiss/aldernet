@@ -10,6 +10,7 @@
 import datetime
 import os
 from contextlib import redirect_stdout
+from locale import normalize
 from operator import concat
 from pathlib import Path
 
@@ -28,14 +29,14 @@ from ray.tune.integration.mlflow import MLflowLoggerCallback
 os.chdir("/users/sadamov/PyProjects/aldernet/")
 experiment_path = os.getcwd()
 
-# try:
-# First-party
-# import training_utils
-#     from training_utils import compile_generator
-#     from training_utils import tf_setup
-#     from training_utils import train_model
-# except Exception:
-execfile("src/training_utils.py")
+try:
+    # First-party
+    from training_utils import compile_generator
+    from training_utils import normalize_field
+    from training_utils import tf_setup
+    from training_utils import train_model
+except Exception:
+    execfile("src/training_utils.py")
 
 tf_setup()
 tf.random.set_seed(1)
@@ -50,17 +51,17 @@ Path(run_path + "/viz").mkdir(parents=True, exist_ok=True)
 # tf.profiler.experimental.server.start(6009)
 # tf.data.experimental.enable_debug_mode()
 
-update_input_data = True
+update_input_data = False
 if update_input_data:
     # Data Import
-    data = xr.open_zarr("/scratch/sadamov/aldernet/faulty/data2022").set_coords(
+    data = xr.open_zarr("/scratch/sadamov/aldernet/data2022").set_coords(
         ("longitude", "latitude", "time", "step", "valid_time")
     )
 
     data_reduced = data.isel(y=slice(450, 514), x=slice(500, 628))
 
     sys.stdout = open("outputfile", "w")
-    print(np.argwhere(np.isnan(data_reduced)))
+    print(np.argwhere(np.isnan(data_reduced.to_array().to_numpy())))
     data_reduced = data_reduced.interpolate_na(
         dim="x", method="linear", fill_value="extrapolate"
     )
@@ -72,23 +73,22 @@ if update_input_data:
     weather = (
         data_reduced.drop_vars(("CORY", "ALNU"))
         .to_array()
-        .transpose("time", "y", "x", "variable")
+        .transpose("valid_time", "y", "x", "variable")
         .to_numpy()
     )
 
-    for arr in (images_a, images_b, weather):
-        min_val = arr.min(axis=(0, 1, 2), keepdims=True)
-        max_val = arr.max(axis=(0, 1, 2), keepdims=True)
-        arr = (arr - min_val) / (max_val - min_val)
+    images_a = normalize_field(images_a)
+    images_b = normalize_field(images_b)
+    weather = normalize_field(weather)
 
     del data_reduced
 
-    np.save("images_a.npy", images_a)
-    np.save("images_b.npy", images_b)
-    np.save("weather.npy", weather)
+    np.save("data/images_a.npy", images_a)
+    np.save("data/images_b.npy", images_b)
+    np.save("data/weather.npy", weather)
 
 weather = np.load("data/weather.npy")
-# weather = weather[:, :, :, (2, 4, 22)]
+weather = weather[:, :, :, (2, 4, 22)]
 images_a = np.load("data/images_a.npy")
 images_b = np.load("data/images_b.npy")
 
@@ -134,10 +134,10 @@ if tune_with_ray:
         ),
         metric="Loss",
         num_samples=8,
-        stop={"training_iteration": 1},
+        stop={"training_iteration": 4},
         config={
             # define search space here
-            "learning_rate": tune.choice([0.0001, 0.0005, 0.001, 0.005]),
+            "learning_rate": tune.choice([0.00001, 0.00005, 0.0001]),
             "beta_1": tune.choice([0.8, 0.85, 0.9]),
             "beta_2": tune.choice([0.95, 0.97, 0.999]),
             "batch_size": tune.choice([10, 20, 40]),

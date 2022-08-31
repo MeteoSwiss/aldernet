@@ -27,8 +27,17 @@ from tensorflow.nn import l2_normalize
 ##########################
 
 
-def tf_setup():
+def normalize_field(data):
+    min_val = data.min(axis=(0, 1, 2), keepdims=True)
+    max_val = data.max(axis=(0, 1, 2), keepdims=True)
+    data = (data - min_val) / (max_val - min_val)
+    return data
 
+
+##########################
+
+
+def tf_setup():
     gpus = tf.config.experimental.list_physical_devices("GPU")
     if gpus:
         try:
