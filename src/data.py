@@ -3,12 +3,13 @@
 # Standard library
 import glob
 import os
+from curses import init_pair
 
 # Third-party
 import cfgrib
 
 # Remove existing zarr archive
-os.system("rm -r /scratch/sadamov/aldernet/data2022")
+# os.system("rm -r /scratch/sadamov/aldernet/data2022")
 
 # Variables to be extracted from surface-level GRIB file
 # Unfortunately, all variables have to be read first (metadata only - lazily),
@@ -71,54 +72,56 @@ var_selection.sort()
 path = "/store/s83/osm/KENDA-1/ANA22/det/"
 files = list(set(glob.glob(path + "*")) - set(glob.glob(path + "*.*")))
 files.sort()
-files_red = files[39 * 24 + 1 : 90 * 24]
+files_red = files[71 * 24 + 9 : 90 * 24]
 # files_red = files[39 * 24 + 1 : 39 * 24 + 4]
 
-ds_surface = (
-    cfgrib.open_dataset(
-        path + "laf2022020900",
-        encode_cf=("time", "geography", "vertical"),
-        backend_kwargs={"filter_by_keys": {"dataType": "fc"}},
-    )
-    .expand_dims({"valid_time": 1})
-    .merge(
+initialize = False
+if initialize:
+    ds_surface = (
         cfgrib.open_dataset(
             path + "laf2022020900",
             encode_cf=("time", "geography", "vertical"),
-            backend_kwargs={"filter_by_keys": {"dataType": "an"}},
-        ).expand_dims({"valid_time": 1})
+            backend_kwargs={"filter_by_keys": {"dataType": "fc"}},
+        )
+        .expand_dims({"valid_time": 1})
+        .merge(
+            cfgrib.open_dataset(
+                path + "laf2022020900",
+                encode_cf=("time", "geography", "vertical"),
+                backend_kwargs={"filter_by_keys": {"dataType": "an"}},
+            ).expand_dims({"valid_time": 1})
+        )
+        .sel({"generalVerticalLayer": 80, "generalVertical": 81})[var_selection]
     )
-    .sel({"generalVerticalLayer": 80, "generalVertical": 81})[var_selection]
-)
 
-ds_u = (
-    cfgrib.open_dataset(
-        path + "laf2022020900",
-        encode_cf=("time", "geography", "vertical"),
-        backend_kwargs={"filter_by_keys": {"shortName": "U"}},
+    ds_u = (
+        cfgrib.open_dataset(
+            path + "laf2022020900",
+            encode_cf=("time", "geography", "vertical"),
+            backend_kwargs={"filter_by_keys": {"shortName": "U"}},
+        )
+        .sel({"generalVerticalLayer": 80})
+        .expand_dims({"valid_time": 1})
     )
-    .sel({"generalVerticalLayer": 80})
-    .expand_dims({"valid_time": 1})
-)
 
-ds_v = (
-    cfgrib.open_dataset(
-        path + "laf2022020900",
-        encode_cf=("time", "geography", "vertical"),
-        backend_kwargs={"filter_by_keys": {"shortName": "V"}},
+    ds_v = (
+        cfgrib.open_dataset(
+            path + "laf2022020900",
+            encode_cf=("time", "geography", "vertical"),
+            backend_kwargs={"filter_by_keys": {"shortName": "V"}},
+        )
+        .sel({"generalVerticalLayer": 80})
+        .expand_dims({"valid_time": 1})
     )
-    .sel({"generalVerticalLayer": 80})
-    .expand_dims({"valid_time": 1})
-)
 
-ds_surface = ds_surface.merge(ds_u, compat="override")
-ds_surface = ds_surface.merge(ds_v, compat="override")
+    ds_surface = ds_surface.merge(ds_u, compat="override")
+    ds_surface = ds_surface.merge(ds_v, compat="override")
 
-keys = list(ds_surface.keys())
-keys.sort()
-ds_surface = ds_surface[keys]
+    keys = list(ds_surface.keys())
+    keys.sort()
+    ds_surface = ds_surface[keys]
 
-ds_surface.to_zarr("/scratch/sadamov/aldernet/data2022")
+    ds_surface.to_zarr("/scratch/sadamov/aldernet/data2022")
 
 for file in files_red:
     print("CURRENT FILE:", file, flush=True)
