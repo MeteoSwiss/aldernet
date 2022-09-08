@@ -54,24 +54,40 @@ Path(run_path + "/viz").mkdir(parents=True, exist_ok=True)
 update_input_data = False
 if update_input_data:
     # Data Import
-    data = xr.open_zarr("/scratch/sadamov/aldernet/data2022").set_coords(
-        ("longitude", "latitude", "time", "step", "valid_time")
+    # Import zarr archive for the years 2020-2022
+    data = xr.open_zarr("/scratch/sadamov/aldernet/data")
+    # Reduce spatial extent for faster training
+    data_reduced = data.isel(
+        valid_time=slice(0, 5568), y=slice(450, 514), x=slice(500, 628)
     )
-
-    data_reduced = data.isel(y=slice(450, 514), x=slice(500, 628))
-
     sys.stdout = open("outputfile", "w")
     print(np.argwhere(np.isnan(data_reduced.to_array().to_numpy())))
-    data_reduced = data_reduced.interpolate_na(
+    # Impute missing data that can sporadically occur in COSMO-output (very few datapoints)
+    data_reduced = data_reduced.chunk(dict(x=-1)).interpolate_na(
         dim="x", method="linear", fill_value="extrapolate"
     )
 
     del data
 
-    images_a = data_reduced.CORY.data[:, :, :, np.newaxis]
-    images_b = data_reduced.ALNU.data[:, :, :, np.newaxis]
+    # Pollen input field for Hazel
+    images_a = data_reduced.CORY.values[:, :, :, np.newaxis]
+    # Pollen output field for Alder
+    images_b = data_reduced.ALNU.values[:, :, :, np.newaxis]
+    # Selection of additional weather parameters on ground level (please select the ones you like)
+    # Depending on the amount of weather fields this step takes several minutes to 1 hour.
+    weather_params = [
+        "ALNUfr",
+        "CORYctsum",
+        "CORYfr",
+        "DURSUN",
+        "HPBL",
+        "PLCOV",
+        "T",
+        "TWATER" "U",
+        "V",
+    ]
     weather = (
-        data_reduced.drop_vars(("CORY", "ALNU"))
+        data_reduced.drop_vars(("CORY", "ALNU"))[weather_params]
         .to_array()
         .transpose("valid_time", "y", "x", "variable")
         .to_numpy()
@@ -88,7 +104,7 @@ if update_input_data:
     np.save("data/weather.npy", weather)
 
 weather = np.load("data/weather.npy")
-weather = weather[:, :, :, (2, 4, 22)]
+# weather = weather[:, :, :, (2, 4, 22)]
 images_a = np.load("data/images_a.npy")
 images_b = np.load("data/images_b.npy")
 
@@ -142,7 +158,7 @@ if tune_with_ray:
             "beta_2": tune.choice([0.95, 0.97, 0.999]),
             "batch_size": tune.choice([10, 20, 40]),
         },
-        resources_per_trial={"gpu": 1},
+        # resources_per_trial={"gpu": 1},
         callbacks=[
             MLflowLoggerCallback(experiment_name="Aldernet", save_artifact=True)
         ],

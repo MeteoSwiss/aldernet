@@ -72,7 +72,7 @@ var_selection.sort()
 path = "/store/s83/osm/KENDA-1/ANA22/det/"
 files = list(set(glob.glob(path + "*")) - set(glob.glob(path + "*.*")))
 files.sort()
-files_red = files[71 * 24 + 9 : 90 * 24]
+files_red = files[39 * 24 + 1 : 90 * 24]
 # files_red = files[39 * 24 + 1 : 39 * 24 + 4]
 
 initialize = False
@@ -173,3 +173,16 @@ for file in files_red:
     ds_surface.to_zarr(
         "/scratch/sadamov/aldernet/data2022", mode="a", append_dim="valid_time"
     )
+
+
+##### COMBINE ALL DATA
+
+# data_2022 = xr.open_zarr("/scratch/sadamov/aldernet/data2022")
+# data_2021 = xr.open_zarr("/scratch/sadamov/aldernet/data2021")
+# data_2020 = xr.open_zarr("/scratch/sadamov/aldernet/data2020")
+
+# data_2020.to_zarr("/scratch/sadamov/aldernet/data")
+# data_2021.to_zarr("/scratch/sadamov/aldernet/data", mode="a", append_dim="valid_time")
+# data_2022.to_zarr("/scratch/sadamov/aldernet/data", mode="a", append_dim="valid_time")
+
+# # After this I had to manually remove the data variable "nominalTop"

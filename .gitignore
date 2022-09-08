@@ -125,3 +125,4 @@ outputfile
 src/training_utils.py
 test.png
 .gitignore
+src/test.py

@@ -55,19 +55,19 @@ var_selection.sort()
 path = "/store/s83/osm/KENDA-1/ANA20/det/"
 files_weather = list(set(glob.glob(path + "*")) - set(glob.glob(path + "*.*")))
 files_weather.sort()
-files_weather = files_weather[76 * 24 + 4 : 90 * 24]
+files_weather = files_weather[0 : 91 * 24]
 
 files_cory = glob.glob(
     "/store/mch/msopr/sadamov/wd/20_cory_tuning_v3/**/lfff00*0000", recursive=True
 )
 files_cory.sort()
-files_cory = files_cory[76 * 24 + 4 :]
+files_cory = files_cory[:]
 
 files_alnu = glob.glob(
     "/store/mch/msopr/sadamov/wd/20_alnu_tuning_v3/**/lfff00*0000", recursive=True
 )
 files_alnu.sort()
-files_alnu = files_alnu[76 * 24 + 4 :]
+files_alnu = files_alnu[:]
 
 initialize = False
 if initialize:
