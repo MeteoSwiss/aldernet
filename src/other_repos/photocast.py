@@ -14,8 +14,6 @@ from pathlib import Path
 # Third-party
 import numpy as np
 import tensorflow as tf
-
-# First-party
 from photocast_utils import discriminator
 from photocast_utils import experiment_path
 from photocast_utils import generator

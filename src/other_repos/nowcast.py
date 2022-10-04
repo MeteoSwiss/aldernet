@@ -11,14 +11,12 @@ from datetime import timedelta
 # Third-party
 import numpy as np
 import tensorflow as tf
-from pyreadr import read_r
-
-# First-party
 from photocast_utils import experiment_path
 from photocast_utils import generator
 from photocast_utils import noise_dim
 from photocast_utils import tf_setup
 from photocast_utils import write_png
+from pyreadr import read_r
 
 tf_setup(11000)
 tf.random.set_seed(1)

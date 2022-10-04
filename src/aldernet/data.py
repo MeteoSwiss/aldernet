@@ -175,7 +175,7 @@ for file in files_red:
     )
 
 
-##### COMBINE ALL DATA
+# COMBINE ALL DATA
 
 # data_2022 = xr.open_zarr("/scratch/sadamov/aldernet/data2022")
 # data_2021 = xr.open_zarr("/scratch/sadamov/aldernet/data2021")

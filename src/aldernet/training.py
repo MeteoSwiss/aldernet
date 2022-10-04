@@ -9,9 +9,8 @@
 # Standard library
 import datetime
 import os
+import sys
 from contextlib import redirect_stdout
-from locale import normalize
-from operator import concat
 from pathlib import Path
 
 # Third-party
@@ -22,21 +21,19 @@ import xarray as xr
 from ray import tune
 from ray.tune.integration.mlflow import MLflowLoggerCallback
 
+# First-party
+# First party
+from aldernet.training_utils import compile_generator
+from aldernet.training_utils import normalize_field
+from aldernet.training_utils import tf_setup
+from aldernet.training_utils import train_model
+
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 # os.environ["TF_GPU_ALLOCATOR"]="cuda_malloc_async"
 
 
 os.chdir("/users/sadamov/PyProjects/aldernet/")
 experiment_path = os.getcwd()
-
-try:
-    # First-party
-    from training_utils import compile_generator
-    from training_utils import normalize_field
-    from training_utils import tf_setup
-    from training_utils import train_model
-except Exception:
-    execfile("src/training_utils.py")
 
 tf_setup()
 tf.random.set_seed(1)
@@ -51,11 +48,11 @@ Path(run_path + "/viz").mkdir(parents=True, exist_ok=True)
 # tf.profiler.experimental.server.start(6009)
 # tf.data.experimental.enable_debug_mode()
 
-update_input_data = False
+update_input_data = True
 if update_input_data:
     # Data Import
     # Import zarr archive for the years 2020-2022
-    data = xr.open_zarr("/scratch/sadamov/aldernet/data")
+    data = xr.open_zarr("/scratch/sadamov/aldernet/data.zarr")
     # Reduce spatial extent for faster training
     data_reduced = data.isel(
         valid_time=slice(0, 5568), y=slice(450, 514), x=slice(500, 628)
@@ -83,7 +80,8 @@ if update_input_data:
         "HPBL",
         "PLCOV",
         "T",
-        "TWATER" "U",
+        "TWATER",
+        "U",
         "V",
     ]
     weather = (

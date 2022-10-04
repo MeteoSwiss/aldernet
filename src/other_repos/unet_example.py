@@ -29,7 +29,7 @@ from tensorflow.keras.preprocessing.image import load_img
 # Prepare paths of input images and target segmentation masks
 
 # os.chdir("/users/sadamov/PyProjects/aldernet/")
-input_dir = "images/"
+input_dir = "data/images_animals/"
 target_dir = "annotations/trimaps/"
 img_size = (160, 160)
 num_classes = 3

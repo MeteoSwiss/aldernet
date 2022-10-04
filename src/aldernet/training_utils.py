@@ -8,7 +8,6 @@ To create realistic Images of Pollen Surface Concentration Maps.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Standard library
-import os
 import time
 from pathlib import Path
 
@@ -16,13 +15,12 @@ from pathlib import Path
 import keras
 import matplotlib.pyplot as plt
 import mlflow
-import numpy as np
 import tensorflow as tf
 from ray import tune
-from tensorflow.keras import layers
-from tensorflow.keras.constraints import Constraint
 from tensorflow.linalg import matvec
 from tensorflow.nn import l2_normalize
+from tensorflow.python.keras import layers
+from tensorflow.python.keras.constraints import Constraint
 
 ##########################
 
