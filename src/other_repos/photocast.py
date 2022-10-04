@@ -8,17 +8,20 @@
 
 # Standard library
 import datetime
+import os
 from contextlib import redirect_stdout
 from pathlib import Path
 
 # Third-party
 import numpy as np
 import tensorflow as tf
-from photocast_utils import discriminator
-from photocast_utils import experiment_path
-from photocast_utils import generator
-from photocast_utils import tf_setup
-from photocast_utils import train_gan
+
+# First-party
+from other_repos.photocast_utils import discriminator
+from other_repos.photocast_utils import experiment_path
+from other_repos.photocast_utils import generator
+from other_repos.photocast_utils import tf_setup
+from other_repos.photocast_utils import train_gan
 
 os.chdir("/users/sadamov/PyProjects/aldernet/")
 
@@ -26,7 +29,9 @@ tf_setup(26000)
 tf.random.set_seed(1)
 
 run_path = (
-    experiment_path + "/run__/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    experiment_path
+    + "/output/run__/"
+    + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 )
 
 Path(run_path).mkdir(parents=True, exist_ok=True)

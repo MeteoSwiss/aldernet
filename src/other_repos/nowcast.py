@@ -11,17 +11,19 @@ from datetime import timedelta
 # Third-party
 import numpy as np
 import tensorflow as tf
-from photocast_utils import experiment_path
-from photocast_utils import generator
-from photocast_utils import noise_dim
-from photocast_utils import tf_setup
-from photocast_utils import write_png
 from pyreadr import read_r
+
+# First-party
+from other_repos.photocast_utils import experiment_path
+from other_repos.photocast_utils import generator
+from other_repos.photocast_utils import noise_dim
+from other_repos.photocast_utils import tf_setup
+from other_repos.photocast_utils import write_png
 
 tf_setup(11000)
 tf.random.set_seed(1)
 
-run_path = experiment_path + "/run__/" + "20220802_153556"
+run_path = experiment_path + "/output/run__/" + "20220802_153556"
 checkpoint_nr = 1
 
 # lead_times = [0, 10, 20, 30, 40, 50, 60]

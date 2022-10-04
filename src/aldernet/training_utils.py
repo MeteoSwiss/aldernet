@@ -16,9 +16,10 @@ import keras
 import matplotlib.pyplot as plt
 import mlflow
 import tensorflow as tf
+from keras import layers
+from keras.constraints import Constraint
+from pyprojroot import here
 from ray import tune
-from tensorflow.keras import layers
-from tensorflow.keras.constraints import Constraint
 from tensorflow.linalg import matvec
 from tensorflow.nn import l2_normalize
 

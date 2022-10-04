@@ -8,7 +8,6 @@
 
 # Standard library
 import datetime
-import os
 import sys
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -18,8 +17,9 @@ import numpy as np
 import ray
 import tensorflow as tf
 import xarray as xr
+from pyprojroot import here
 from ray import tune
-from ray.tune.integration.mlflow import MLflowLoggerCallback
+from ray.air.callbacks.mlflow import MLflowLoggerCallback
 
 # First-party
 # First party
@@ -28,21 +28,13 @@ from aldernet.training_utils import normalize_field
 from aldernet.training_utils import tf_setup
 from aldernet.training_utils import train_model
 
-# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-# os.environ["TF_GPU_ALLOCATOR"]="cuda_malloc_async"
-
-
-os.chdir("/users/sadamov/PyProjects/aldernet/")
-experiment_path = os.getcwd()
+run_path = (
+    str(here()) + "/output/run__/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+)
+Path(run_path + "/viz").mkdir(parents=True, exist_ok=True)
 
 tf_setup()
 tf.random.set_seed(1)
-
-run_path = (
-    experiment_path + "/run__/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-)
-
-Path(run_path + "/viz").mkdir(parents=True, exist_ok=True)
 
 # Profiling and Debugging
 # tf.profiler.experimental.server.start(6009)
@@ -97,14 +89,14 @@ if update_input_data:
 
     del data_reduced
 
-    np.save("data/images_a.npy", images_a)
-    np.save("data/images_b.npy", images_b)
-    np.save("data/weather.npy", weather)
+    np.save(str(here()) + "/data/images_a.npy", images_a)
+    np.save(str(here()) + "/data/images_b.npy", images_b)
+    np.save(str(here()) + "/data/weather.npy", weather)
 
-weather = np.load("data/weather.npy")
+weather = np.load(str(here()) + "/data/weather.npy")
 # weather = weather[:, :, :, (2, 4, 22)]
-images_a = np.load("data/images_a.npy")
-images_b = np.load("data/images_b.npy")
+images_a = np.load(str(here()) + "/data/images_a.npy")
+images_b = np.load(str(here()) + "/data/images_b.npy")
 
 dataset_train = {"images_a": images_a, "weather": weather, "images_b": images_b}
 
@@ -132,8 +124,8 @@ if tune_with_ray:
     ray.shutdown()
     ray.init(
         runtime_env={
-            "working_dir": "/users/sadamov/PyProjects/aldernet/",
-            "excludes": ["data/", "run__/", ".git/", "images/"],
+            "working_dir": str(here()),
+            "excludes": ["data/", "output/", ".git/", "images/"],
             # "py_modules": ["/users/sadamov/PyProjects/aldernet/src/training_utils.py"]
         }
     )
