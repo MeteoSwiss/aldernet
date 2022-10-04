@@ -48,7 +48,7 @@ Path(run_path + "/viz").mkdir(parents=True, exist_ok=True)
 # tf.profiler.experimental.server.start(6009)
 # tf.data.experimental.enable_debug_mode()
 
-update_input_data = True
+update_input_data = False
 if update_input_data:
     # Data Import
     # Import zarr archive for the years 2020-2022

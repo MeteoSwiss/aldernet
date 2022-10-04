@@ -17,10 +17,10 @@ import matplotlib.pyplot as plt
 import mlflow
 import tensorflow as tf
 from ray import tune
+from tensorflow.keras import layers
+from tensorflow.keras.constraints import Constraint
 from tensorflow.linalg import matvec
 from tensorflow.nn import l2_normalize
-from tensorflow.python.keras import layers
-from tensorflow.python.keras.constraints import Constraint
 
 ##########################
 
