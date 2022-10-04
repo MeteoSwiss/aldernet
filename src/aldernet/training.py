@@ -22,15 +22,12 @@ from ray import tune
 from ray.air.callbacks.mlflow import MLflowLoggerCallback
 
 # First-party
-# First party
 from aldernet.training_utils import compile_generator
 from aldernet.training_utils import normalize_field
 from aldernet.training_utils import tf_setup
 from aldernet.training_utils import train_model
 
-run_path = (
-    str(here()) + "/output/run__/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-)
+run_path = str(here()) + "/output/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 Path(run_path + "/viz").mkdir(parents=True, exist_ok=True)
 
 tf_setup()
@@ -140,6 +137,7 @@ if tune_with_ray:
         ),
         metric="Loss",
         num_samples=8,
+        resources_per_trial={"gpu": 1},
         stop={"training_iteration": 4},
         config={
             # define search space here

@@ -29,9 +29,7 @@ tf_setup(26000)
 tf.random.set_seed(1)
 
 run_path = (
-    experiment_path
-    + "/output/run__/"
-    + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    experiment_path + "/output/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 )
 
 Path(run_path).mkdir(parents=True, exist_ok=True)

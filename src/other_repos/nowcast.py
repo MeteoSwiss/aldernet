@@ -23,7 +23,7 @@ from other_repos.photocast_utils import write_png
 tf_setup(11000)
 tf.random.set_seed(1)
 
-run_path = experiment_path + "/output/run__/" + "20220802_153556"
+run_path = experiment_path + "/output/" + "20220802_153556"
 checkpoint_nr = 1
 
 # lead_times = [0, 10, 20, 30, 40, 50, 60]
