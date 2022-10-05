@@ -136,15 +136,15 @@ if tune_with_ray:
             tune_with_ray=tune_with_ray,
         ),
         metric="Loss",
-        num_samples=8,
+        num_samples=1,
         resources_per_trial={"gpu": 1},
-        stop={"training_iteration": 4},
+        stop={"training_iteration": 1},
         config={
             # define search space here
-            "learning_rate": tune.choice([0.00001, 0.00005, 0.0001]),
-            "beta_1": tune.choice([0.8, 0.85, 0.9]),
-            "beta_2": tune.choice([0.95, 0.97, 0.999]),
-            "batch_size": tune.choice([10, 20, 40]),
+            "learning_rate": tune.choice([0.0001]),
+            "beta_1": tune.choice([0.85]),
+            "beta_2": tune.choice([0.97]),
+            "batch_size": tune.choice([40]),
         },
         # resources_per_trial={"gpu": 1},
         callbacks=[

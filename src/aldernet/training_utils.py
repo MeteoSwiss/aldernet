@@ -26,6 +26,7 @@ from tensorflow.nn import l2_normalize
 
 
 def normalize_field(data):
+    # mean zero and standard deviation is one (standard scalng, subtract mean and divide by sd - center + scale)
     min_val = data.min(axis=(0, 1, 2), keepdims=True)
     max_val = data.max(axis=(0, 1, 2), keepdims=True)
     data = (data - min_val) / (max_val - min_val)
@@ -294,6 +295,9 @@ def train_model(
         print("Restored from {}".format(manager.latest_checkpoint), flush=True)
     else:
         print("Initializing from scratch.", flush=True)
+
+    # Model compile first
+    # Fit me baby! tf.model.fit
 
     while True:
         start = time.time()
