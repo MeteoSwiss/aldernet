@@ -116,7 +116,7 @@ outputs/*
 images
 annotations
 oxford_segmentation.h5
-data
+data/*
 mlruns
 run__
 src/photocast_utils.py-jvsc*.ipynb
