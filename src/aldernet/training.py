@@ -8,109 +8,54 @@
 
 # Standard library
 import datetime
-import sys
 from contextlib import redirect_stdout
 from pathlib import Path
 
 # Third-party
 import numpy as np
-import ray
-import tensorflow as tf
-import xarray as xr
+from keras.utils import plot_model
 from pyprojroot import here
+from ray import init
+from ray import shutdown
 from ray import tune
 from ray.air.callbacks.mlflow import MLflowLoggerCallback
+from tensorflow.random import set_seed
 
 # First-party
 from aldernet.training_utils import compile_generator
-from aldernet.training_utils import normalize_field
 from aldernet.training_utils import tf_setup
 from aldernet.training_utils import train_model
+from aldernet.training_utils import train_model_simple
 
 run_path = str(here()) + "/output/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 Path(run_path + "/viz").mkdir(parents=True, exist_ok=True)
 
 tf_setup()
-tf.random.set_seed(1)
+set_seed(1)
 
 # Profiling and Debugging
 # tf.profiler.experimental.server.start(6009)
 # tf.data.experimental.enable_debug_mode()
 
-update_input_data = False
-if update_input_data:
-    # Data Import
-    # Import zarr archive for the years 2020-2022
-    data = xr.open_zarr("/scratch/sadamov/aldernet/data.zarr")
-    # Reduce spatial extent for faster training
-    data_reduced = data.isel(
-        valid_time=slice(0, 5568), y=slice(450, 514), x=slice(500, 628)
-    )
-    sys.stdout = open("outputfile", "w")
-    print(np.argwhere(np.isnan(data_reduced.to_array().to_numpy())))
-    # Impute missing data that can sporadically occur in COSMO-output (very few datapoints)
-    data_reduced = data_reduced.chunk(dict(x=-1)).interpolate_na(
-        dim="x", method="linear", fill_value="extrapolate"
-    )
-
-    del data
-
-    # Pollen input field for Hazel
-    images_a = data_reduced.CORY.values[:, :, :, np.newaxis]
-    # Pollen output field for Alder
-    images_b = data_reduced.ALNU.values[:, :, :, np.newaxis]
-    # Selection of additional weather parameters on ground level (please select the ones you like)
-    # Depending on the amount of weather fields this step takes several minutes to 1 hour.
-    weather_params = [
-        "ALNUfr",
-        "CORYctsum",
-        "CORYfr",
-        "DURSUN",
-        "HPBL",
-        "PLCOV",
-        "T",
-        "TWATER",
-        "U",
-        "V",
-    ]
-    weather = (
-        data_reduced.drop_vars(("CORY", "ALNU"))[weather_params]
-        .to_array()
-        .transpose("valid_time", "y", "x", "variable")
-        .to_numpy()
-    )
-
-    images_a = normalize_field(images_a)
-    images_b = normalize_field(images_b)
-    weather = normalize_field(weather)
-
-    del data_reduced
-
-    np.save(str(here()) + "/data/images_a.npy", images_a)
-    np.save(str(here()) + "/data/images_b.npy", images_b)
-    np.save(str(here()) + "/data/weather.npy", weather)
-
-weather = np.load(str(here()) + "/data/weather.npy")
-# weather = weather[:, :, :, (2, 4, 22)]
-images_a = np.load(str(here()) + "/data/images_a.npy")
-images_b = np.load(str(here()) + "/data/images_b.npy")
-
-dataset_train = {"images_a": images_a, "weather": weather, "images_b": images_b}
+hazel_train = np.load(str(here()) + "/data/hazel_train.npy")
+hazel_valid = np.load(str(here()) + "/data/hazel_valid.npy")
+alder_train = np.load(str(here()) + "/data/alder_train.npy")
+alder_valid = np.load(str(here()) + "/data/alder_valid.npy")
+weather_train = np.load(str(here()) + "/data/weather_train.npy")
+weather_valid = np.load(str(here()) + "/data/weather_valid.npy")
 
 # Model
 
-height = images_a.shape[1]
-width = images_a.shape[2]
-weather_features = weather.shape[3]
+height = hazel_train.shape[1]
+width = hazel_train.shape[2]
+weather_features = weather_train.shape[3]
 
 generator = compile_generator(height, width, weather_features)
 
 with open(run_path + "/generator_summary.txt", "w") as handle:
     with redirect_stdout(handle):
         generator.summary()
-tf.keras.utils.plot_model(
-    generator, to_file=run_path + "/generator.png", show_shapes=True, dpi=96
-)
+plot_model(generator, to_file=run_path + "/generator.png", show_shapes=True, dpi=96)
 
 # Train
 
@@ -118,8 +63,8 @@ tf.keras.utils.plot_model(
 tune_with_ray = True
 
 if tune_with_ray:
-    ray.shutdown()
-    ray.init(
+    shutdown()
+    init(
         runtime_env={
             "working_dir": str(here()),
             "excludes": ["data/", "output/", ".git/", "images/"],
@@ -131,14 +76,16 @@ if tune_with_ray:
         tune.with_parameters(
             train_model,
             generator=generator,
-            dataset_train=dataset_train,
+            input_train=hazel_train,
+            target_train=alder_train,
+            weather_train=weather_train,
             run_path=run_path,
             tune_with_ray=tune_with_ray,
         ),
         metric="Loss",
         num_samples=1,
         resources_per_trial={"gpu": 1},
-        stop={"training_iteration": 1},
+        stop={"training_iteration": 10},
         config={
             # define search space here
             "learning_rate": tune.choice([0.0001]),
@@ -152,10 +99,4 @@ if tune_with_ray:
         ],
     )
 else:
-    config = {}
-    config["beta_1"] = 0.85
-    config["beta_2"] = 0.999
-    config["learning_rate"] = 0.005
-    config["batch_size"] = 20
-
-    train_model(config, generator, dataset_train, run_path, tune_with_ray)
+    train_model_simple(hazel_train, alder_train, hazel_valid, alder_valid)
