@@ -25,11 +25,10 @@ from tensorflow.nn import l2_normalize
 ##########################
 
 
-def normalize_field(data):
-    # mean zero and standard deviation is one (standard scalng, subtract mean and divide by sd - center + scale)
-    min_val = data.min(axis=(0, 1, 2), keepdims=True)
-    max_val = data.max(axis=(0, 1, 2), keepdims=True)
-    data = (data - min_val) / (max_val - min_val)
+def normalize_field(data, data_train):
+    center = data_train.mean(axis=(0, 1, 2), keepdims=True)
+    scale = data_train.std(axis=(0, 1, 2), keepdims=True)
+    data = (data - center) / scale
     return data
 
 
@@ -92,7 +91,7 @@ def cbr(filters, name=None):
             kernel_size=3,
             padding="same",
             use_bias=False,
-            kernel_constraint=SpectralNormalization(),
+            # kernel_constraint=SpectralNormalization(),
         )
     )
     block.add(layers.BatchNormalization())
@@ -111,7 +110,7 @@ def down(filters, name=None):
             strides=2,
             padding="same",
             use_bias=False,
-            kernel_constraint=SpectralNormalization(),
+            # kernel_constraint=SpectralNormalization(),
         )
     )
     block.add(layers.BatchNormalization())
@@ -130,7 +129,7 @@ def up(filters, name=None):
             strides=2,
             padding="same",
             use_bias=False,
-            kernel_constraint=SpectralNormalization(),
+            # kernel_constraint=SpectralNormalization(),
         )
     )
     block.add(layers.BatchNormalization())
@@ -183,7 +182,7 @@ def compile_generator(height, width, weather_features):
         kernel_size=1,
         padding="same",
         activation="tanh",
-        kernel_constraint=SpectralNormalization(),
+        # kernel_constraint=SpectralNormalization(),
         name="output",
     )(block)
 
@@ -231,12 +230,12 @@ filters = [64, 128, 256, 512, 1024, 1024, 512, 768, 640, 448, 288, 352]
 
 
 # @tf.function(jit_compile=True)
-def gan_step(generator, optimizer_gen, images_a, weather, images_b):
+def gan_step(generator, optimizer_gen, input_train, target_train, weather_train):
 
     with tf.GradientTape() as tape_gen:
-        generated = generator([images_a, weather])
-        loss = tf.math.reduce_sum(tf.math.abs(generated - images_b))
-        # loss = tf.math.reduce_mean(tf.math.squared_difference(generated, images_b))
+        generated = generator([input_train, weather_train])
+        loss = tf.math.reduce_sum(tf.math.abs(generated - target_train))
+        # loss = tf.math.reduce_mean(tf.math.squared_difference(generated, alder))
         gradients_gen = tape_gen.gradient(loss, generator.trainable_variables)
 
     optimizer_gen.apply_gradients(zip(gradients_gen, generator.trainable_variables))
@@ -245,7 +244,7 @@ def gan_step(generator, optimizer_gen, images_a, weather, images_b):
 
 
 def train_model(
-    config, generator=None, dataset_train=None, run_path=None, tune_with_ray=True
+    config, generator, input_train, target_train, weather_train, run_path, tune_with_ray
 ):
     if tune_with_ray:
         mlflow.set_experiment("Aldernet")
@@ -258,14 +257,8 @@ def train_model(
     step = tf.Variable(1, dtype="int64")
 
     dataset_train = (
-        tf.data.Dataset.from_tensor_slices(
-            (
-                dataset_train["images_a"],
-                dataset_train["weather"],
-                dataset_train["images_b"],
-            )
-        )
-        .shuffle(10000)
+        tf.data.Dataset.from_tensor_slices((input_train, target_train, weather_train))
+        .shuffle(1000)
         .batch(config["batch_size"])
         .prefetch(tf.data.AUTOTUNE)
     )
@@ -296,24 +289,19 @@ def train_model(
     else:
         print("Initializing from scratch.", flush=True)
 
-    # Model compile first
-    # Fit me baby! tf.model.fit
-
     while True:
         start = time.time()
-        for (
-            images_a,
-            weather,
-            images_b,
-        ) in dataset_train:
+        for (hazel_train, alder_train, weather_train) in dataset_train:
 
             if not tune_with_ray:
                 print(epoch.numpy(), "-", step.numpy(), flush=True)
 
-            loss = gan_step(generator, optimizer_gen, images_a, weather, images_b)
+            loss = gan_step(
+                generator, optimizer_gen, hazel_train, alder_train, weather_train
+            )
 
-            generated_1 = generator([images_a, weather])
-            viz = (images_a[0], images_b[0], generated_1[0])
+            generated_1 = generator([hazel_train, weather_train])
+            viz = (hazel_train[0], alder_train[0], generated_1[0])
 
             write_png(
                 viz,
@@ -341,3 +329,52 @@ def train_model(
             tune.report(iterations=step, Loss=loss.numpy())
         epoch.assign_add(1)
     return {"Loss": loss}
+
+
+def train_model_simple(
+    training_input, training_target, validation_input, validation_target
+):
+    training_tensor = (
+        tf.data.Dataset.from_tensor_slices((training_input, training_target))
+        .shuffle(1000)
+        .batch(40)
+        .prefetch(tf.data.AUTOTUNE)
+    )
+    validation_tensor = (
+        tf.data.Dataset.from_tensor_slices((validation_input))
+        .batch(40)
+        .prefetch(tf.data.AUTOTUNE)
+    )
+    model = keras.models.Sequential()
+    model.add(layers.Dense(1, input_shape=(64, 128, 1)))
+    model.add(
+        layers.Conv2D(
+            filters=2,
+            kernel_size=4,
+            strides=1,
+            padding="same",
+            use_bias=False,
+            # kernel_constraint=SpectralNormalization()
+        )
+    )
+    model.add(layers.Dense(1, activation="linear"))
+    model.summary()
+
+    model.compile(
+        loss="mean_absolute_error",
+        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
+        metrics=["mae"],
+    )
+
+    model.fit(training_tensor, epochs=100, batch_size=40)
+    predictions = model.predict(validation_tensor)
+    for timestep in range(0, len(validation_input), 100):
+        write_png(
+            (
+                validation_input[timestep],
+                validation_target[timestep],
+                predictions[timestep],
+            ),
+            "./output/prediction" + str(timestep) + ".png",
+            pretty=True,
+        )
