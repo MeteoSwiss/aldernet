@@ -27,6 +27,12 @@ from aldernet.training_utils import tf_setup
 from aldernet.training_utils import train_model
 from aldernet.training_utils import train_model_simple
 
+# ---> DEFINE SETTINGS HERE <--- #
+tune_with_ray = True
+noise_dim = 0
+add_weather = True
+# -------------------------------#
+
 run_path = str(here()) + "/output/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 Path(run_path + "/viz").mkdir(parents=True, exist_ok=True)
 
@@ -41,8 +47,12 @@ hazel_train = np.load(str(here()) + "/data/hazel_train.npy")
 hazel_valid = np.load(str(here()) + "/data/hazel_valid.npy")
 alder_train = np.load(str(here()) + "/data/alder_train.npy")
 alder_valid = np.load(str(here()) + "/data/alder_valid.npy")
-weather_train = np.load(str(here()) + "/data/weather_train.npy")
-weather_valid = np.load(str(here()) + "/data/weather_valid.npy")
+if add_weather:
+    weather_train = np.load(str(here()) + "/data/weather_train.npy")
+    weather_valid = np.load(str(here()) + "/data/weather_valid.npy")
+else:
+    weather_train = np.empty(shape=[0, 0, 0, 0])
+    weather_valid = np.empty(shape=[0, 0, 0, 0])
 
 # Model
 
@@ -50,7 +60,7 @@ height = hazel_train.shape[1]
 width = hazel_train.shape[2]
 weather_features = weather_train.shape[3]
 
-generator = compile_generator(height, width, weather_features)
+generator = compile_generator(height, width, weather_features, noise_dim)
 
 with open(run_path + "/generator_summary.txt", "w") as handle:
     with redirect_stdout(handle):
@@ -60,7 +70,6 @@ plot_model(generator, to_file=run_path + "/generator.png", show_shapes=True, dpi
 # Train
 
 # Use hyperparameter search functionality by ray tune and log experiment
-tune_with_ray = True
 
 if tune_with_ray:
     shutdown()
@@ -79,13 +88,17 @@ if tune_with_ray:
             input_train=hazel_train,
             target_train=alder_train,
             weather_train=weather_train,
+            input_valid=hazel_valid,
+            target_valid=alder_valid,
+            weather_valid=weather_valid,
             run_path=run_path,
             tune_with_ray=tune_with_ray,
+            noise_dim=noise_dim,
         ),
         metric="Loss",
         num_samples=1,
         resources_per_trial={"gpu": 1},
-        stop={"training_iteration": 10},
+        stop={"training_iteration": 2},
         config={
             # define search space here
             "learning_rate": tune.choice([0.0001]),
@@ -93,7 +106,10 @@ if tune_with_ray:
             "beta_2": tune.choice([0.97]),
             "batch_size": tune.choice([40]),
         },
-        # resources_per_trial={"gpu": 1},
+        local_dir=run_path,
+        keep_checkpoints_num=1,
+        checkpoint_score_attr="Loss",
+        checkpoint_at_end=True,
         callbacks=[
             MLflowLoggerCallback(experiment_name="Aldernet", save_artifact=True)
         ],
