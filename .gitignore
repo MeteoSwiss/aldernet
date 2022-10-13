@@ -126,3 +126,4 @@ src/training_utils.py
 test.png
 .gitignore
 src/test.py
+src/other_repos
