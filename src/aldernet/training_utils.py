@@ -15,23 +15,14 @@ from pathlib import Path
 import keras
 import matplotlib.pyplot as plt
 import mlflow
+import numpy as np
 import tensorflow as tf
 from keras import layers
 from keras.constraints import Constraint
-from ray import air
 from ray import tune
+from ray.air import session
 from tensorflow.linalg import matvec
 from tensorflow.nn import l2_normalize
-
-##########################
-
-
-def normalize_field(data, data_train):
-    center = data_train.mean(axis=(0, 1, 2), keepdims=True)
-    scale = data_train.std(axis=(0, 1, 2), keepdims=True)
-    data = (data - center) / scale
-    return data
-
 
 ##########################
 
@@ -213,18 +204,29 @@ def compile_generator(height, width, weather_features, noise_dim):
 def write_png(image, path, pretty):
 
     if pretty:
+
+        minmin = min(image[0].min(), image[1].min(), image[2].min())
+        maxmax = max(image[0].max(), image[1].max(), image[2].max())
+
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(10, 2.1), dpi=150)
-        ax1.imshow(image[0][:, :, 0], cmap="viridis")
-        ax2.imshow(image[1][:, :, 0], cmap="viridis")
-        ax3.imshow(image[2][:, :, 0], cmap="viridis")
+        ax1.imshow(
+            image[0][:, :, 0], cmap="viridis", vmin=minmin, vmax=maxmax, aspect="auto"
+        )
+        ax2.imshow(
+            image[1][:, :, 0], cmap="viridis", vmin=minmin, vmax=maxmax, aspect="auto"
+        )
+        im3 = ax3.imshow(
+            image[2][:, :, 0], cmap="viridis", vmin=minmin, vmax=maxmax, aspect="auto"
+        )
         for ax in (ax1, ax2, ax3):
             ax.axes.xaxis.set_visible(False)
             ax.axes.yaxis.set_visible(False)
         ax1.axes.set_title("Input")
         ax2.axes.set_title("Target")
         ax3.axes.set_title("Prediction")
-        plt.tight_layout()
-        plt.subplots_adjust(top=0.85)
+        fig.subplots_adjust(right=0.85, top=0.85)
+        cbar_ax = fig.add_axes([0.88, 0.15, 0.04, 0.7])
+        fig.colorbar(im3, cax=cbar_ax)
         plt.savefig(path)
         plt.close(fig)
     else:
@@ -262,7 +264,7 @@ def gan_step(
             generated = generator([noise, input_train])
         else:
             generated = generator([input_train])
-        loss = tf.math.reduce_sum(tf.math.abs(generated - target_train))
+        loss = tf.math.reduce_mean(tf.math.abs(generated - target_train))
         # loss = tf.math.reduce_mean(tf.math.squared_difference(generated, alder))
         gradients_gen = tape_gen.gradient(loss, generator.trainable_variables)
 
@@ -281,30 +283,28 @@ def train_model(
     target_valid,
     weather_valid,
     run_path,
-    tune_with_ray,
     noise_dim,
 ):
-    if tune_with_ray:
-        mlflow.set_experiment("Aldernet")
-        mlflow.set_tracking_uri("mlruns")
-        tune_trial = tune.get_trial_name() + "/"
-        Path(run_path + "/viz/" + tune_trial).mkdir(parents=True, exist_ok=True)
-    else:
-        tune_trial = ""
+    mlflow.set_tracking_uri(run_path + "/mlruns")
+    mlflow.set_experiment("Aldernet")
+    tune_trial = tune.get_trial_name() + "/"
+    Path(run_path + "/viz/" + tune_trial).mkdir(parents=True, exist_ok=True)
+    Path(run_path + "/viz/valid/" + tune_trial).mkdir(parents=True, exist_ok=True)
 
     epoch = tf.Variable(1, dtype="int64")
     step = tf.Variable(1, dtype="int64")
+    step_valid = 1
 
     if weather_train.shape[3] == 0:
         dataset_train = (
             tf.data.Dataset.from_tensor_slices((input_train, target_train))
-            .shuffle(1000)
+            .shuffle(10000)
             .batch(config["batch_size"])
             .prefetch(tf.data.AUTOTUNE)
         )
         dataset_valid = (
             tf.data.Dataset.from_tensor_slices((input_valid, target_valid))
-            .shuffle(1000)
+            .shuffle(10000)
             .batch(config["batch_size"])
             .prefetch(tf.data.AUTOTUNE)
         )
@@ -313,7 +313,7 @@ def train_model(
             tf.data.Dataset.from_tensor_slices(
                 (input_train, target_train, weather_train)
             )
-            .shuffle(1000)
+            .shuffle(10000)
             .batch(config["batch_size"])
             .prefetch(tf.data.AUTOTUNE)
         )
@@ -321,7 +321,7 @@ def train_model(
             tf.data.Dataset.from_tensor_slices(
                 (input_valid, target_valid, weather_valid)
             )
-            .shuffle(1000)
+            .shuffle(10000)
             .batch(config["batch_size"])
             .prefetch(tf.data.AUTOTUNE)
         )
@@ -335,27 +335,37 @@ def train_model(
     )
 
     while True:
+        start = time.time()
+        loss_report = np.zeros(0)
+        loss_valid = np.zeros(0)
         if weather_train.shape[3] == 0:
-            start = time.time()
             for (hazel_train, alder_train) in dataset_train:
 
-                if not tune_with_ray:
-                    print(epoch.numpy(), "-", step.numpy(), flush=True)
+                print(epoch.numpy(), "-", step.numpy(), flush=True)
 
-                loss = gan_step(
-                    generator,
-                    optimizer_gen,
-                    hazel_train,
-                    alder_train,
-                    weather_train,
-                    noise_dim,
+                loss_report = np.append(
+                    loss_report,
+                    gan_step(
+                        generator,
+                        optimizer_gen,
+                        hazel_train,
+                        alder_train,
+                        weather_train,
+                        noise_dim,
+                    ).numpy(),
                 )
                 if noise_dim > 0:
                     noise_train = tf.random.normal([hazel_train.shape[0], noise_dim])
                     generated_train = generator([noise_train, hazel_train])
                 else:
                     generated_train = generator([hazel_train])
-                viz = (hazel_train[0], alder_train[0], generated_train[0])
+                index = np.random.randint(hazel_train.numpy().shape[0] - 1)
+
+                viz = (
+                    hazel_train[index].numpy(),
+                    alder_train[index].numpy(),
+                    generated_train[index].numpy(),
+                )
 
                 write_png(
                     viz,
@@ -377,24 +387,63 @@ def train_model(
                 ),
                 flush=True,
             )
-            if tune_with_ray:
-                tune.report(iterations=step, Loss=loss.numpy())
+
+            for (hazel_valid, alder_valid) in dataset_valid:
+                if noise_dim > 0:
+                    noise_valid = tf.random.normal([hazel_valid.shape[0], noise_dim])
+                    generated_valid = generator([noise_valid, hazel_valid])
+                else:
+                    generated_valid = generator([hazel_valid])
+                index = np.random.randint(hazel_valid.numpy().shape[0] - 1)
+                viz = (
+                    hazel_valid[index].numpy(),
+                    alder_valid[index].numpy(),
+                    generated_valid[index].numpy(),
+                )
+                write_png(
+                    viz,
+                    run_path
+                    + "/viz/valid/"
+                    + tune_trial
+                    + str(epoch.numpy())
+                    + "-"
+                    + str(step_valid)
+                    + ".png",
+                    pretty=True,
+                )
+                step_valid += 1
+                loss_valid = np.append(
+                    loss_valid,
+                    tf.math.reduce_mean(
+                        tf.math.abs(generated_valid - alder_valid)
+                    ).numpy(),
+                )
+            session.report(
+                {
+                    "iterations": step,
+                    "Loss_valid": loss_valid.mean(),
+                    "Loss": loss_report.mean(),
+                }
+            )
+
             epoch.assign_add(1)
 
         else:
             start = time.time()
             for (hazel_train, alder_train, weather_train) in dataset_train:
 
-                if not tune_with_ray:
-                    print(epoch.numpy(), "-", step.numpy(), flush=True)
+                print(epoch.numpy(), "-", step.numpy(), flush=True)
 
-                loss = gan_step(
-                    generator,
-                    optimizer_gen,
-                    hazel_train,
-                    alder_train,
-                    weather_train,
-                    noise_dim,
+                loss_report = np.append(
+                    loss_report,
+                    gan_step(
+                        generator,
+                        optimizer_gen,
+                        hazel_train,
+                        alder_train,
+                        weather_train,
+                        noise_dim,
+                    ).numpy(),
                 )
                 if noise_dim > 0:
                     noise_train = tf.random.normal([hazel_train.shape[0], noise_dim])
@@ -403,8 +452,13 @@ def train_model(
                     )
                 else:
                     generated_train = generator([hazel_train, weather_train])
-                viz = (hazel_train[0], alder_train[0], generated_train[0])
+                index = np.random.randint(hazel_train.numpy().shape[0] - 1)
 
+                viz = (
+                    hazel_train[index].numpy(),
+                    alder_train[index].numpy(),
+                    generated_train[index].numpy(),
+                )
                 write_png(
                     viz,
                     run_path
@@ -425,42 +479,55 @@ def train_model(
                 ),
                 flush=True,
             )
-            if tune_with_ray:
-                tune.report(iterations=step, Loss=loss.numpy())
 
-            # todo calcuate the full valid array loss
-            # todo then print a random selection of images
-            # todo then differentiate between weather and non-weather
-            if noise_dim > 0:
-                noise_valid = tf.random.normal([hazel_valid.shape[0], noise_dim])
-                generated_valid = generator([noise_valid, hazel_valid, weather_valid])
-            else:
-                generated_valid = generator([hazel_valid, weather_valid])
-
-            viz = (hazel_valid[0], alder_valid[0], generated_valid[0])
-            write_png(
-                viz,
-                run_path
-                + "/viz/valid/"
-                + tune_trial
-                + str(epoch.numpy())
-                + "-"
-                + str(step.numpy())
-                + ".png",
-                pretty=True,
+            for (hazel_valid, alder_valid, weather_valid) in dataset_valid:
+                if noise_dim > 0:
+                    noise_valid = tf.random.normal([hazel_valid.shape[0], noise_dim])
+                    generated_valid = generator(
+                        [noise_valid, hazel_valid, weather_valid]
+                    )
+                else:
+                    generated_valid = generator([hazel_valid, weather_valid])
+                index = np.random.randint(hazel_valid.numpy().shape[0] - 1)
+                viz = (
+                    hazel_valid[index].numpy(),
+                    alder_valid[index].numpy(),
+                    generated_valid[index].numpy(),
+                )
+                write_png(
+                    viz,
+                    run_path
+                    + "/viz/valid/"
+                    + tune_trial
+                    + str(epoch.numpy())
+                    + "-"
+                    + str(step_valid)
+                    + ".png",
+                    pretty=True,
+                )
+                loss_valid = np.append(
+                    loss_valid,
+                    tf.math.reduce_mean(
+                        tf.math.abs(generated_valid - alder_valid)
+                    ).numpy(),
+                )
+                step_valid += 1
+            session.report(
+                {
+                    "iterations": step,
+                    "Loss_valid": loss_valid.mean(),
+                    "Loss": loss_report.mean(),
+                }
             )
-            loss_valid = tf.math.reduce_sum(tf.math.abs(generated_valid - alder_valid))
-            air.session.report({"Loss_valid": loss_valid})
-
-        epoch.assign_add(1)
-
-        return {"Loss": loss, "Loss_valid": loss_valid}
+            epoch.assign_add(1)
 
 
-def train_model_simple(training_input, training_target, valid_input, valid_target):
+def train_model_simple(
+    training_input, training_target, valid_input, valid_target, epochs
+):
     training_tensor = (
         tf.data.Dataset.from_tensor_slices((training_input, training_target))
-        .shuffle(1000)
+        .shuffle(10000)
         .batch(40)
         .prefetch(tf.data.AUTOTUNE)
     )
@@ -490,7 +557,7 @@ def train_model_simple(training_input, training_target, valid_input, valid_targe
         metrics=["mae"],
     )
 
-    model.fit(training_tensor, epochs=100, batch_size=40)
+    model.fit(training_tensor, epochs=epochs, batch_size=40)
     predictions = model.predict(valid_tensor)
     for timestep in range(0, len(valid_input), 100):
         write_png(
