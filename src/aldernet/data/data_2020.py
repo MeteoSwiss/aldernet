@@ -2,7 +2,6 @@
 
 # Standard library
 import glob
-import os
 
 # Third-party
 import cfgrib
