@@ -18,67 +18,55 @@ import xarray as xr
 
 data = xr.open_zarr("/scratch/sadamov/aldernet/data")
 
+my_dict = dict(
+    valid_time=data.valid_time.data,
+    latitude=(["y", "x"], data.latitude.data),
+    longitude=(["y", "x"], data.longitude.data),
+)
+my_dims = {"y": data.dims.mapping["y"], "x": data.dims.mapping["x"]}
+
 data["cos_dayofyear"] = (
-    xr.DataArray(data=np.cos(2 * np.pi * data["valid_time.dayofyear"] / 365.25))
-    .expand_dims(
-        {"y": data.dims.mapping["y"], "x": data.dims.mapping["x"]}, axis=(1, 2)
+    xr.DataArray(
+        data=np.cos(2 * np.pi * data["valid_time.dayofyear"] / 365.25, dtype="float32")
     )
-    .assign_coords(
-        coords=dict(
-            valid_time=data.valid_time.data,
-            latitude=(["y", "x"], data.latitude.data),
-            longitude=(["y", "x"], data.longitude.data),
-        )
-    )
+    .expand_dims(my_dims, axis=(1, 2))
+    .assign_coords(coords=my_dict)
 )
 
 data["sin_dayofyear"] = (
-    xr.DataArray(data=np.sin(2 * np.pi * data["valid_time.dayofyear"] / 365.25))
-    .expand_dims(
-        {"y": data.dims.mapping["y"], "x": data.dims.mapping["x"]}, axis=(1, 2)
+    xr.DataArray(
+        data=np.sin(2 * np.pi * data["valid_time.dayofyear"] / 365.25, dtype="float32")
     )
-    .assign_coords(
-        coords=dict(
-            valid_time=data.valid_time.data,
-            latitude=(["y", "x"], data.latitude.data),
-            longitude=(["y", "x"], data.longitude.data),
-        )
-    )
+    .expand_dims(my_dims, axis=(1, 2))
+    .assign_coords(coords=my_dict)
 )
 
 data["cos_hourofday"] = (
-    xr.DataArray(data=np.cos(2 * np.pi * data["valid_time.hour"] / 24.0))
-    .expand_dims(
-        {"y": data.dims.mapping["y"], "x": data.dims.mapping["x"]}, axis=(1, 2)
+    xr.DataArray(
+        data=np.cos(2 * np.pi * data["valid_time.hour"] / 24.0, dtype="float32")
     )
-    .assign_coords(
-        coords=dict(
-            valid_time=data.valid_time.data,
-            latitude=(["y", "x"], data.latitude.data),
-            longitude=(["y", "x"], data.longitude.data),
-        )
-    )
+    .expand_dims(my_dims, axis=(1, 2))
+    .assign_coords(coords=my_dict)
 )
 
 data["sin_hourofday"] = (
-    xr.DataArray(data=np.sin(2 * np.pi * data["valid_time.hour"] / 24.0))
-    .expand_dims(
-        {"y": data.dims.mapping["y"], "x": data.dims.mapping["x"]}, axis=(1, 2)
+    xr.DataArray(
+        data=np.sin(2 * np.pi * data["valid_time.hour"] / 24.0, dtype="float32")
     )
-    .assign_coords(
-        coords=dict(
-            valid_time=data.valid_time.data,
-            latitude=(["y", "x"], data.latitude.data),
-            longitude=(["y", "x"], data.longitude.data),
-        )
-    )
+    .expand_dims(my_dims, axis=(1, 2))
+    .assign_coords(coords=my_dict)
 )
 
 new_fn = "/scratch/sadamov/aldernet/data.zarr"
 for i, var in enumerate(data.data_vars):
     # clear zarr encoding
     data[var].encoding.clear()
+    # hardcoded chunks as "auto" does not create equal chunks for all data variables
     if i == 0:
-        data[[var]].chunk("auto").persist().to_zarr(new_fn, mode="w")
+        data[[var]].chunk({"valid_time": 36, "y": 786, "x": 1170}).persist().to_zarr(
+            new_fn, mode="w"
+        )
     else:
-        data[[var]].chunk("auto").persist().to_zarr(new_fn, mode="a")
+        data[[var]].chunk({"valid_time": 36, "y": 786, "x": 1170}).persist().to_zarr(
+            new_fn, mode="a"
+        )

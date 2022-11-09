@@ -8,16 +8,14 @@ import xarray as xr
 # Import zarr archive for the years 2020-2022
 data = xr.open_zarr("/scratch/sadamov/aldernet/data.zarr")
 
-# Check for missing data (should not occur in model fields)
-# sys.stdout = open("outputfile", "w")
-# print(np.argwhere(np.isnan(data_zoom.to_array().to_numpy())))
-# Impute missing data that can sporadically occur in COSMO-output (very few datapoints)
-# data = data.interpolate_na(
-#     dim="x", method="linear", fill_value="extrapolate"
-# )
-
 # Reduce spatial extent for faster training
 data_zoom = data.isel(y=slice(450, 514), x=slice(500, 628))
+
+# Check for missing data
+# Impute missing data that can sporadically occur in COSMO - very few datapoints
+# sys.stdout = open("outputfile", "w")
+# print(np.argwhere(np.isnan(data_zoom.to_array().to_numpy())))
+data = data.interpolate_na(dim="x", method="linear", fill_value="extrapolate")
 
 high_indices = (
     (
@@ -51,9 +49,14 @@ hazel_valid = data_valid_norm.CORY.values[:, :, :, np.newaxis]
 # Pollen output field for Alder
 alder_train = data_train_norm.ALNU.values[:, :, :, np.newaxis]
 alder_valid = data_valid_norm.ALNU.values[:, :, :, np.newaxis]
+
 # Selection of additional weather parameters on ground level (please select the ones you like)
 # Depending on the amount of weather fields this step takes several minutes to 1 hour.
 weather_params = [
+    "cos_dayofyear",
+    "sin_dayofyear",
+    "cos_hourofday",
+    "sin_hourofday",
     "ALNUfr",
     "CORYctsum",
     "CORYfr",
@@ -65,6 +68,8 @@ weather_params = [
     "U",
     "V",
 ]
+# weather_params = list(data_train.drop_vars(("CORY", "ALNU")).keys())
+
 weather_train = (
     data_train_norm.drop_vars(("CORY", "ALNU"))[weather_params]
     .to_array()
