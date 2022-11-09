@@ -21,7 +21,7 @@ from ray import init
 from ray import shutdown
 from ray import tune
 from ray.air.callbacks.mlflow import MLflowLoggerCallback
-from tensorflow.random import set_seed
+from tensorflow import random
 
 # First-party
 from aldernet.training_utils import compile_generator
@@ -32,7 +32,7 @@ from aldernet.training_utils import train_model_simple
 # ---> DEFINE SETTINGS HERE <--- #
 tune_with_ray = True
 noise_dim = 0
-add_weather = False
+add_weather = True
 filter_time = 4344
 # -------------------------------#
 
@@ -43,7 +43,7 @@ if tune_with_ray:
 path_data = "/scratch/sadamov/aldernet/npy/small/"
 
 tf_setup()
-set_seed(1)
+random.set_seed(1)
 
 # Profiling and Debugging
 # tf.profiler.experimental.server.start(6009)
@@ -99,7 +99,7 @@ if tune_with_ray:
         metric="Loss",
         num_samples=1,
         resources_per_trial={"gpu": 1},  # Choose approriate Device
-        stop={"training_iteration": 10},
+        stop={"training_iteration": 5},
         config={
             # define search space here
             "learning_rate": tune.choice([0.0001]),

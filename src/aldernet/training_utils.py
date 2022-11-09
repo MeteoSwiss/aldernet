@@ -21,8 +21,6 @@ from keras import layers
 from keras.constraints import Constraint
 from ray import tune
 from ray.air import session
-from tensorflow.linalg import matvec
-from tensorflow.nn import l2_normalize
 
 ##########################
 
@@ -60,13 +58,13 @@ class SpectralNormalization(Constraint):
         u_ = self.u
         v_ = None
         for _ in range(self.iterations):
-            v_ = matvec(W_, u_)
-            v_ = l2_normalize(v_)
+            v_ = tf.matvec(W_, u_)
+            v_ = tf.l2_normalize(v_)
 
-            u_ = matvec(W_, v_, transpose_a=True)
-            u_ = l2_normalize(u_)
+            u_ = tf.matvec(W_, v_, transpose_a=True)
+            u_ = tf.l2_normalize(u_)
 
-        sigma = tf.tensordot(u_, matvec(W_, v_, transpose_a=True), axes=1)
+        sigma = tf.tensordot(u_, tf.matvec(W_, v_, transpose_a=True), axes=1)
         self.u.assign(u_)  # '=' produces an error in graph mode
         return w / sigma
 
