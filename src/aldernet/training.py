@@ -31,7 +31,7 @@ from aldernet.training_utils import train_model_simple
 
 # ---> DEFINE SETTINGS HERE <--- #
 tune_with_ray = True
-noise_dim = 0
+noise_dim = 100
 add_weather = True
 filter_time = 4344
 # -------------------------------#
@@ -99,7 +99,7 @@ if tune_with_ray:
         metric="Loss",
         num_samples=1,
         resources_per_trial={"gpu": 1},  # Choose approriate Device
-        stop={"training_iteration": 5},
+        stop={"training_iteration": 15},
         config={
             # define search space here
             "learning_rate": tune.choice([0.0001]),

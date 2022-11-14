@@ -57,6 +57,12 @@ data["sin_hourofday"] = (
     .assign_coords(coords=my_dict)
 )
 
+# data["altitude"] = (
+#     xr.DataArray(data["heightAboveGround"])
+#     .expand_dims(my_dims, axis=(1, 2))
+#     .assign_coords(coords=my_dict)
+# )
+
 new_fn = "/scratch/sadamov/aldernet/data.zarr"
 for i, var in enumerate(data.data_vars):
     # clear zarr encoding
