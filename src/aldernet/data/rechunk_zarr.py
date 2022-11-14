@@ -57,11 +57,17 @@ data["sin_hourofday"] = (
     .assign_coords(coords=my_dict)
 )
 
-# data["altitude"] = (
-#     xr.DataArray(data["heightAboveGround"])
-#     .expand_dims(my_dims, axis=(1, 2))
-#     .assign_coords(coords=my_dict)
-# )
+data["altitude"] = (
+    xr.open_dataarray(
+        "/users/sadamov/PyProjects/aldernet/data/c1effsurf000_000",
+        engine="cfgrib",
+        encode_cf=("time", "geography", "vertical"),
+        backend_kwargs={"filter_by_keys": {"shortName": "HSURF"}},
+    )
+    .drop_vars("valid_time")
+    .expand_dims({"valid_time": data.dims.mapping["valid_time"]})
+    .assign_coords(coords=my_dict)
+)
 
 new_fn = "/scratch/sadamov/aldernet/data.zarr"
 for i, var in enumerate(data.data_vars):
