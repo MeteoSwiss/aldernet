@@ -53,6 +53,7 @@ alder_valid = data_valid_norm.ALNU.values[:, :, :, np.newaxis]
 # Selection of additional weather parameters on ground level (please select the ones you like)
 # Depending on the amount of weather fields this step takes several minutes to 1 hour.
 weather_params = [
+    "altitude",
     "CORYctsum",
     "CORYfe",
     "CORYfr",

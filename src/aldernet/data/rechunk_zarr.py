@@ -67,6 +67,7 @@ data["altitude"] = (
     .drop_vars("valid_time")
     .expand_dims({"valid_time": data.dims.mapping["valid_time"]})
     .assign_coords(coords=my_dict)
+    .astype("float32")
 )
 
 new_fn = "/scratch/sadamov/aldernet/data.zarr"
