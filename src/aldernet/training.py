@@ -14,7 +14,7 @@ from pathlib import Path
 
 # Third-party
 import mlflow
-import numpy as np
+import xarray as xr
 from keras.utils import plot_model
 from pyprojroot import here
 from ray import init
@@ -24,6 +24,7 @@ from ray.air.callbacks.mlflow import MLflowLoggerCallback
 from tensorflow import random
 
 # First-party
+from aldernet.data.data_utils import Batcher
 from aldernet.training_utils import compile_generator
 from aldernet.training_utils import tf_setup
 from aldernet.training_utils import train_model
@@ -31,40 +32,33 @@ from aldernet.training_utils import train_model_simple
 
 # ---> DEFINE SETTINGS HERE <--- #
 tune_with_ray = True
-noise_dim = 100
-add_weather = True
-filter_time = 4344
+noise_dim = 0
+add_weather = False
 # -------------------------------#
+if not tune_with_ray:
+    add_weather = False
+
+
+tf_setup()
+random.set_seed(1)
 
 run_path = str(here()) + "/output/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 if tune_with_ray:
     Path(run_path + "/viz/valid").mkdir(parents=True, exist_ok=True)
 
-path_data = "/scratch/sadamov/aldernet/npy/small/"
+data_train = xr.open_zarr("/scratch/sadamov/aldernet/data_zoom/data_train.zarr")
+data_valid = xr.open_zarr("/scratch/sadamov/aldernet/data_zoom/data_valid.zarr")
 
-tf_setup()
-random.set_seed(1)
-
-# Profiling and Debugging
-# tf.profiler.experimental.server.start(6009)
-# tf.data.experimental.enable_debug_mode()
-
-hazel_train = np.load(path_data + "hazel_train.npy")
-hazel_valid = np.load(path_data + "hazel_valid.npy")
-alder_train = np.load(path_data + "alder_train.npy")
-alder_valid = np.load(path_data + "alder_valid.npy")
-if add_weather:
-    weather_train = np.load(path_data + "weather_train.npy")
-    weather_valid = np.load(path_data + "weather_valid.npy")
-else:
-    weather_train = np.empty(shape=[0, 0, 0, 0])
-    weather_valid = np.empty(shape=[0, 0, 0, 0])
+batcher_train = Batcher(data_train, batch_size=32, weather=add_weather)
+batcher_valid = Batcher(data_valid, batch_size=32, weather=add_weather)
 
 if tune_with_ray:
-    height = hazel_train.shape[1]
-    width = hazel_train.shape[2]
-    weather_features = weather_train.shape[3]
-
+    height = data_train.CORY.shape[1]
+    width = data_train.CORY.shape[2]
+    if add_weather:
+        weather_features = len(data_train.drop_vars(("ALNU", "CORY")).data_vars)
+    else:
+        weather_features = 0
     generator = compile_generator(height, width, weather_features, noise_dim)
 
     with open(run_path + "/generator_summary.txt", "w") as handle:
@@ -87,19 +81,16 @@ if tune_with_ray:
         tune.with_parameters(
             train_model,
             generator=generator,
-            input_train=hazel_train[0:filter_time, :, :, :],
-            target_train=alder_train[0:filter_time, :, :, :],
-            weather_train=weather_train[0:filter_time, :, :, :],
-            input_valid=hazel_valid[0:filter_time, :, :, :],
-            target_valid=alder_valid[0:filter_time, :, :, :],
-            weather_valid=weather_valid[0:filter_time, :, :, :],
+            data_train=batcher_train,
+            data_valid=batcher_valid,
             run_path=run_path,
             noise_dim=noise_dim,
+            weather=add_weather,
         ),
         metric="Loss",
         num_samples=1,
         resources_per_trial={"gpu": 1},  # Choose approriate Device
-        stop={"training_iteration": 15},
+        stop={"training_iteration": 20},
         config={
             # define search space here
             "learning_rate": tune.choice([0.0001]),
@@ -127,4 +118,4 @@ if tune_with_ray:
     rsync_cmd = "rsync" + " -avzh " + run_path + "/mlruns" + " " + str(here())
     subprocess.run(rsync_cmd, shell=True)
 else:
-    train_model_simple(hazel_train, alder_train, hazel_valid, alder_valid, epochs=10)
+    train_model_simple(batcher_train, batcher_valid, epochs=10)

@@ -1,9 +1,65 @@
 """Helper functions to import and pre-process zarr archives."""
 
+# Standard library
+import math
 
-def normalize_field(data, data_train):
-    for i in range(data_train.shape[3]):
-        center = data_train[:, :, :, i].mean(axis=(0, 1, 2), keepdims=True)
-        scale = data_train[:, :, :, i].std(axis=(0, 1, 2), keepdims=True)
-        data[:, :, :, i] = (data[:, :, :, i] - center) / scale
-    return data
+# Third-party
+import tensorflow as tf
+
+select_params = [
+    "ALNU",
+    "CORY",
+    "CORYctsum",
+    "CORYfe",
+    "CORYfr",
+    "CORYrprec",
+    "CORYsaisn",
+    "CORYsdes",
+    "cos_dayofyear",
+    "cos_hourofday",
+    "FIS",
+    "HPBL",
+    "HSURF",
+    "QR",
+    "P",
+    "sin_dayofyear",
+    "sin_hourofday",
+    "TQC",
+    "U",
+    "V",
+]
+
+
+class Batcher(tf.keras.utils.Sequence):
+    """Generates data for Keras."""
+
+    def __init__(self, data, batch_size, weather):
+        """Initialize."""
+        self.x = data[["CORY"]].to_array("var").transpose("valid_time", ..., "var")
+        if weather:
+            self.weather = (
+                data[select_params]
+                .drop_vars(("ALNU"))
+                .to_array("var")
+                .transpose("valid_time", ..., "var")
+            )
+        self.y = data[["ALNU"]].to_array("var").transpose("valid_time", ..., "var")
+        self.batch_size = batch_size
+        self.on_epoch_end()
+        self.weather = weather
+
+    def __len__(self):
+        """Denotes the number of batches per epoch."""
+        return math.ceil(self.x.shape[0] / self.batch_size)
+
+    def __getitem__(self, idx):
+        """Generate one batch of data."""
+        batch_x = self.x[idx * self.batch_size : (idx + 1) * self.batch_size]
+        batch_y = self.y[idx * self.batch_size : (idx + 1) * self.batch_size]
+        if self.weather:
+            batch_weather = self.weather[
+                idx * self.batch_size : (idx + 1) * self.batch_size
+            ]
+            return batch_x.values, batch_weather.values, batch_y.values
+        else:
+            return batch_x.values, batch_y.values

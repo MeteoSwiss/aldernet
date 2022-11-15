@@ -57,7 +57,7 @@ data["sin_hourofday"] = (
     .assign_coords(coords=my_dict)
 )
 
-data["altitude"] = (
+data["HSURF"] = (
     xr.open_dataarray(
         "/users/sadamov/PyProjects/aldernet/data/c1effsurf000_000",
         engine="cfgrib",
@@ -76,10 +76,10 @@ for i, var in enumerate(data.data_vars):
     data[var].encoding.clear()
     # hardcoded chunks as "auto" does not create equal chunks for all data variables
     if i == 0:
-        data[[var]].chunk({"valid_time": 36, "y": 786, "x": 1170}).persist().to_zarr(
+        data[[var]].chunk({"valid_time": 32, "y": 786, "x": 1170}).persist().to_zarr(
             new_fn, mode="w"
         )
     else:
-        data[[var]].chunk({"valid_time": 36, "y": 786, "x": 1170}).persist().to_zarr(
+        data[[var]].chunk({"valid_time": 32, "y": 786, "x": 1170}).persist().to_zarr(
             new_fn, mode="a"
         )
