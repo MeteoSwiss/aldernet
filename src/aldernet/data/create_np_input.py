@@ -15,7 +15,7 @@ data_zoom = data.isel(y=slice(450, 514), x=slice(500, 628))
 # Impute missing data that can sporadically occur in COSMO - very few datapoints
 # sys.stdout = open("outputfile", "w")
 # print(np.argwhere(np.isnan(data_zoom.to_array().to_numpy())))
-data = data.interpolate_na(dim="x", method="linear", fill_value="extrapolate")
+data_zoom = data_zoom.interpolate_na(dim="x", method="linear", fill_value="extrapolate")
 
 high_indices = (
     (
@@ -53,7 +53,6 @@ alder_valid = data_valid_norm.ALNU.values[:, :, :, np.newaxis]
 # Selection of additional weather parameters on ground level (please select the ones you like)
 # Depending on the amount of weather fields this step takes several minutes to 1 hour.
 weather_params = [
-    "altitude",
     "CORYctsum",
     "CORYfe",
     "CORYfr",
