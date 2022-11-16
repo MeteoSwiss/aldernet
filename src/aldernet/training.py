@@ -24,7 +24,6 @@ from ray.air.callbacks.mlflow import MLflowLoggerCallback
 from tensorflow import random
 
 # First-party
-from aldernet.data.data_utils import Batcher
 from aldernet.training_utils import compile_generator
 from aldernet.training_utils import tf_setup
 from aldernet.training_utils import train_model
@@ -48,9 +47,6 @@ if tune_with_ray:
 
 data_train = xr.open_zarr("/scratch/sadamov/aldernet/data_zoom/data_train.zarr")
 data_valid = xr.open_zarr("/scratch/sadamov/aldernet/data_zoom/data_valid.zarr")
-
-batcher_train = Batcher(data_train, batch_size=32, weather=add_weather)
-batcher_valid = Batcher(data_valid, batch_size=32, weather=add_weather)
 
 if tune_with_ray:
     height = data_train.CORY.shape[1]
@@ -81,16 +77,24 @@ if tune_with_ray:
         tune.with_parameters(
             train_model,
             generator=generator,
-            data_train=batcher_train,
-            data_valid=batcher_valid,
+            data_train=data_train,
+            data_valid=data_valid,
             run_path=run_path,
             noise_dim=noise_dim,
             weather=add_weather,
         ),
-        metric="Loss",
+        # metric="Loss",
         num_samples=1,
+        scheduler=tune.schedulers.ASHAScheduler(
+            time_attr="training_iteration",
+            metric="Loss",
+            mode="min",
+            max_t=10,
+            grace_period=4,
+            reduction_factor=3,
+        ),
         resources_per_trial={"gpu": 1},  # Choose approriate Device
-        stop={"training_iteration": 20},
+        # stop={"training_iteration": 2},
         config={
             # define search space here
             "learning_rate": tune.choice([0.0001]),
@@ -118,4 +122,6 @@ if tune_with_ray:
     rsync_cmd = "rsync" + " -avzh " + run_path + "/mlruns" + " " + str(here())
     subprocess.run(rsync_cmd, shell=True)
 else:
-    train_model_simple(batcher_train, batcher_valid, epochs=10)
+    data_train = Batcher(data_train, batch_size=32, weather=weather)
+    data_valid = Batcher(data_valid, batch_size=32, weather=weather)
+    train_model_simple(batcher_train, batcher_valid, epochs=3)

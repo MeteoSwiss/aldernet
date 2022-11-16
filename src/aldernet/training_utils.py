@@ -24,6 +24,9 @@ from pyprojroot import here
 from ray import tune
 from ray.air import session
 
+# First-party
+from aldernet.data.data_utils import Batcher
+
 ##########################
 
 
@@ -282,6 +285,10 @@ def gan_step(
 def train_model(
     config, generator, data_train, data_valid, run_path, noise_dim, weather
 ):
+
+    data_train = Batcher(data_train, batch_size=32, weather=weather)
+    data_valid = Batcher(data_valid, batch_size=32, weather=weather)
+
     mlflow.set_tracking_uri(run_path + "/mlruns")
     mlflow.set_experiment("Aldernet")
     tune_trial = tune.get_trial_name() + "/"
@@ -401,6 +408,8 @@ def train_model(
             )
 
             epoch.assign_add(1)
+            data_train.on_epoch_end()
+            data_valid.on_epoch_end()
 
         else:
             start = time.time()
@@ -508,7 +517,7 @@ def train_model(
 
 def train_model_simple(data_training, data_valid, epochs):
     model = keras.models.Sequential()
-    model.add(layers.Dense(1, input_shape=(64, 128, 1)))
+    model.add(layers.Dense(1, input_shape=(786, 1170, 1)))
     model.add(
         layers.Conv2D(
             filters=2,
@@ -530,9 +539,7 @@ def train_model_simple(data_training, data_valid, epochs):
 
     model.fit(data_training, epochs=epochs)
     predictions = model.predict(data_valid)
-    for timestep in range(
-        0, math.floor(data_valid.x.shape[0] / data_valid.batch_size), 100
-    ):
+    for timestep in range(0, predictions.shape[0], 100):
         write_png(
             (
                 data_valid.x[timestep].values,

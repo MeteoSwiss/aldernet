@@ -45,12 +45,13 @@ data_zoom = data_zoom.interpolate_na(dim="x", method="linear", fill_value="extra
 
 high_indices = (
     (
-        (data_zoom["CORY"].mean(dim=("x", "y")) > 30)
-        | (data_zoom["ALNU"].mean(dim=("x", "y")) > 30)
+        (data_zoom["CORY"].median(dim=("x", "y")) > 10)
+        | (data_zoom["ALNU"].median(dim=("x", "y")) > 10)
     )
     & (data_zoom["CORY"].max(dim=("x", "y")) < 5000)
     & (data_zoom["ALNU"].max(dim=("x", "y")) < 5000)
 )
+
 data_high = data_zoom.sel({"valid_time": data_zoom.valid_time[high_indices]})
 
 data_high.CORY.values = np.log10(data_high.CORY.values + 1)

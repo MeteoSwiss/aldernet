@@ -4,6 +4,7 @@
 import math
 
 # Third-party
+import numpy as np
 import tensorflow as tf
 
 select_params = [
@@ -33,7 +34,7 @@ select_params = [
 class Batcher(tf.keras.utils.Sequence):
     """Generates data for Keras."""
 
-    def __init__(self, data, batch_size, weather):
+    def __init__(self, data, batch_size, weather, shuffle=True):
         """Initialize."""
         self.x = data[["CORY"]].to_array("var").transpose("valid_time", ..., "var")
         if weather:
@@ -45,8 +46,9 @@ class Batcher(tf.keras.utils.Sequence):
             )
         self.y = data[["ALNU"]].to_array("var").transpose("valid_time", ..., "var")
         self.batch_size = batch_size
-        self.on_epoch_end()
         self.weather = weather
+        self.shuffle = shuffle
+        self.on_epoch_end()
 
     def __len__(self):
         """Denotes the number of batches per epoch."""
@@ -63,3 +65,18 @@ class Batcher(tf.keras.utils.Sequence):
             return batch_x.values, batch_weather.values, batch_y.values
         else:
             return batch_x.values, batch_y.values
+
+    def on_epoch_end(self):
+        """Update indexes after each epoch."""
+        if self.shuffle is True:
+            shuffle_x = self.x.values
+            np.random.shuffle(shuffle_x)
+            self.x.values = shuffle_x
+            shuffle_y = self.y.values
+            np.random.shuffle(shuffle_y)
+            self.y.values = shuffle_y
+            if self.weather:
+                shuffle_weather = self.weather.values
+                np.random.shuffle(shuffle_weather)
+                self.weather.values = shuffle_weather
+            print("Data Reshuffled!", flush=True)
