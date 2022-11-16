@@ -45,8 +45,8 @@ data_zoom = data_zoom.interpolate_na(dim="x", method="linear", fill_value="extra
 
 high_indices = (
     (
-        (data_zoom["CORY"].median(dim=("x", "y")) > 10)
-        | (data_zoom["ALNU"].median(dim=("x", "y")) > 10)
+        (data_zoom["CORY"].mean(dim=("x", "y")) > 5)
+        | (data_zoom["ALNU"].mean(dim=("x", "y")) > 5)
     )
     & (data_zoom["CORY"].max(dim=("x", "y")) < 5000)
     & (data_zoom["ALNU"].max(dim=("x", "y")) < 5000)

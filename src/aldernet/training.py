@@ -24,6 +24,7 @@ from ray.air.callbacks.mlflow import MLflowLoggerCallback
 from tensorflow import random
 
 # First-party
+from aldernet.data.data_utils import Batcher
 from aldernet.training_utils import compile_generator
 from aldernet.training_utils import tf_setup
 from aldernet.training_utils import train_model
@@ -122,6 +123,6 @@ if tune_with_ray:
     rsync_cmd = "rsync" + " -avzh " + run_path + "/mlruns" + " " + str(here())
     subprocess.run(rsync_cmd, shell=True)
 else:
-    data_train = Batcher(data_train, batch_size=32, weather=weather)
-    data_valid = Batcher(data_valid, batch_size=32, weather=weather)
+    batcher_train = Batcher(data_train, batch_size=32, weather=add_weather)
+    batcher_valid = Batcher(data_valid, batch_size=32, weather=add_weather)
     train_model_simple(batcher_train, batcher_valid, epochs=3)
