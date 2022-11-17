@@ -27,6 +27,8 @@ from ray.air import session
 # First-party
 from aldernet.data.data_utils import Batcher
 
+filters = [64, 128, 256, 512, 1024, 1024, 512, 768, 640, 448, 288, 352]
+
 ##########################
 
 
@@ -136,9 +138,6 @@ def up(filters, name=None):
 ##########################
 
 
-filters = [64, 128, 256, 512, 1024, 1024, 512, 768, 640, 448, 288, 352]
-
-
 def compile_generator(height, width, weather_features, noise_dim):
     image_input = keras.Input(shape=[height, width, 1], name="image_input")
     if weather_features > 0:
@@ -152,9 +151,7 @@ def compile_generator(height, width, weather_features, noise_dim):
 
     u_skip_layers = [block]
     for ll in range(1, len(filters) // 2):
-
         block = down(filters[ll], "down_%s-down" % ll)(block)
-
         # Collect U-Net skip connections
         u_skip_layers.append(block)
     height = block.shape[1]
@@ -173,7 +170,10 @@ def compile_generator(height, width, weather_features, noise_dim):
     for ll in range(len(filters) // 2, len(filters) - 1):
 
         block = up(filters[ll], "up_%s-up" % (len(filters) - ll - 1))(block)
-
+        if ll > len(filters) // 2 and ll < len(filters) - 2:
+            block = layers.Cropping2D(cropping=((1, 0), (1, 0)), data_format=None)(
+                block
+            )
         # Connect U-Net skip
         block = layers.Concatenate(name="up_%s-concatenate" % (len(filters) - ll - 1))(
             [block, u_skip_layers.pop()]
@@ -242,7 +242,6 @@ def write_png(image, path, pretty):
 ##########################
 
 bxe_loss = tf.keras.losses.BinaryCrossentropy(from_logits=True)
-filters = [64, 128, 256, 512, 1024, 1024, 512, 768, 640, 448, 288, 352]
 
 # * https://www.tensorflow.org/tutorials/customization/custom_training_walkthrough
 # * Autodifferentiation vs. calculate training steps yourself

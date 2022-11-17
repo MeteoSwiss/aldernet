@@ -46,8 +46,8 @@ run_path = str(here()) + "/output/" + datetime.datetime.now().strftime("%Y%m%d_%
 if tune_with_ray:
     Path(run_path + "/viz/valid").mkdir(parents=True, exist_ok=True)
 
-data_train = xr.open_zarr("/scratch/sadamov/aldernet/data_zoom/data_train.zarr")
-data_valid = xr.open_zarr("/scratch/sadamov/aldernet/data_zoom/data_valid.zarr")
+data_train = xr.open_zarr("/scratch/sadamov/aldernet/data_train.zarr")
+data_valid = xr.open_zarr("/scratch/sadamov/aldernet/data_valid.zarr")
 
 if tune_with_ray:
     height = data_train.CORY.shape[1]
@@ -94,7 +94,7 @@ if tune_with_ray:
             grace_period=4,
             reduction_factor=3,
         ),
-        resources_per_trial={"gpu": 1},  # Choose approriate Device
+        resources_per_trial={"cpu": 1},  # Choose approriate Device
         # stop={"training_iteration": 2},
         config={
             # define search space here
