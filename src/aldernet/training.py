@@ -8,6 +8,7 @@
 
 # Standard library
 import datetime
+import socket
 import subprocess
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -32,8 +33,8 @@ from aldernet.training_utils import train_model_simple
 
 # ---> DEFINE SETTINGS HERE <--- #
 tune_with_ray = True
-noise_dim = 0
-add_weather = False
+noise_dim = 100
+add_weather = True
 # -------------------------------#
 if not tune_with_ray:
     add_weather = False
@@ -46,8 +47,17 @@ run_path = str(here()) + "/output/" + datetime.datetime.now().strftime("%Y%m%d_%
 if tune_with_ray:
     Path(run_path + "/viz/valid").mkdir(parents=True, exist_ok=True)
 
-data_train = xr.open_zarr("/scratch/sadamov/aldernet/data_train.zarr")
-data_valid = xr.open_zarr("/scratch/sadamov/aldernet/data_valid.zarr")
+hostname = socket.gethostname()
+if "tsa" in hostname:
+    data_train = xr.open_zarr("/scratch/sadamov/aldernet/data_train.zarr")
+    data_valid = xr.open_zarr("/scratch/sadamov/aldernet/data_valid.zarr")
+elif "nid" in hostname:
+    data_train = xr.open_zarr(
+        "/scratch/e1000/meteoswiss/scratch/sadamov/aldernet/data_train.zarr"
+    )
+    data_valid = xr.open_zarr(
+        "/scratch/e1000/meteoswiss/scratch/sadamov/aldernet/data_valid.zarr"
+    )
 
 if tune_with_ray:
     height = data_train.CORY.shape[1]
@@ -82,7 +92,7 @@ if tune_with_ray:
             data_valid=data_valid,
             run_path=run_path,
             noise_dim=noise_dim,
-            weather=add_weather,
+            add_weather=add_weather,
         ),
         # metric="Loss",
         num_samples=1,
@@ -94,14 +104,14 @@ if tune_with_ray:
             grace_period=4,
             reduction_factor=3,
         ),
-        resources_per_trial={"cpu": 1},  # Choose approriate Device
+        resources_per_trial={"gpu": 1},  # Choose approriate Device
         # stop={"training_iteration": 2},
         config={
             # define search space here
             "learning_rate": tune.choice([0.0001]),
             "beta_1": tune.choice([0.85]),
             "beta_2": tune.choice([0.97]),
-            "batch_size": tune.choice([40]),
+            "batch_size": tune.choice([10]),
             "mlflow": {
                 "experiment_name": "Aldernet",
                 "tracking_uri": mlflow.get_tracking_uri(),
@@ -123,6 +133,9 @@ if tune_with_ray:
     rsync_cmd = "rsync" + " -avzh " + run_path + "/mlruns" + " " + str(here())
     subprocess.run(rsync_cmd, shell=True)
 else:
-    batcher_train = Batcher(data_train, batch_size=32, weather=add_weather)
-    batcher_valid = Batcher(data_valid, batch_size=32, weather=add_weather)
+    batcher_train = Batcher(data_train, batch_size=32, add_weather=add_weather)
+    batcher_valid = Batcher(data_valid, batch_size=32, add_weather=add_weather)
+    if add_weather:
+        batcher_train.x = batcher_train.x + batcher_train.weather
+        batcher_train.weather = None
     train_model_simple(batcher_train, batcher_valid, epochs=3)

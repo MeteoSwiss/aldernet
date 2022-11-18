@@ -28,6 +28,7 @@ from ray.air import session
 from aldernet.data.data_utils import Batcher
 
 filters = [64, 128, 256, 512, 1024, 1024, 512, 768, 640, 448, 288, 352]
+filters[:] = [x / 16 for x in filters]
 
 ##########################
 
@@ -112,6 +113,8 @@ def down(filters, name=None):
     )
     block.add(layers.BatchNormalization())
     block.add(layers.LeakyReLU())
+    # block.add(layers.MaxPooling2D((2, 2)))
+    # block.add(layers.Dropout(0.05))
 
     return block
 
@@ -258,17 +261,17 @@ def gan_step(
     target_train,
     weather_train,
     noise_dim,
-    weather,
+    add_weather,
 ):
 
     if noise_dim > 0:
         noise = tf.random.normal([input_train.shape[0], noise_dim])
     with tf.GradientTape() as tape_gen:
-        if weather and noise_dim > 0:
+        if add_weather and noise_dim > 0:
             generated = generator([noise, input_train, weather_train])
-        elif weather and noise_dim <= 0:
+        elif add_weather and noise_dim <= 0:
             generated = generator([input_train, weather_train])
-        elif not weather and noise_dim > 0:
+        elif not add_weather and noise_dim > 0:
             generated = generator([noise, input_train])
         else:
             generated = generator([input_train])
@@ -282,11 +285,11 @@ def gan_step(
 
 
 def train_model(
-    config, generator, data_train, data_valid, run_path, noise_dim, weather
+    config, generator, data_train, data_valid, run_path, noise_dim, add_weather
 ):
 
-    data_train = Batcher(data_train, batch_size=32, weather=weather)
-    data_valid = Batcher(data_valid, batch_size=32, weather=weather)
+    data_train = Batcher(data_train, batch_size=32, add_weather=add_weather)
+    data_valid = Batcher(data_valid, batch_size=32, add_weather=add_weather)
 
     mlflow.set_tracking_uri(run_path + "/mlruns")
     mlflow.set_experiment("Aldernet")
@@ -310,7 +313,7 @@ def train_model(
         start = time.time()
         loss_report = np.zeros(0)
         loss_valid = np.zeros(0)
-        if not weather:
+        if not add_weather:
             for i in range(math.floor(data_train.x.shape[0] / data_train.batch_size)):
 
                 hazel_train = data_train[i][0]
@@ -327,7 +330,7 @@ def train_model(
                         alder_train,
                         None,
                         noise_dim,
-                        weather,
+                        add_weather,
                     ).numpy(),
                 )
                 if noise_dim > 0:
@@ -429,7 +432,7 @@ def train_model(
                         alder_train,
                         weather_train,
                         noise_dim,
-                        weather,
+                        add_weather,
                     ).numpy(),
                 )
                 if noise_dim > 0:
@@ -515,19 +518,173 @@ def train_model(
 
 
 def train_model_simple(data_training, data_valid, epochs):
-    model = keras.models.Sequential()
-    model.add(layers.Dense(1, input_shape=(786, 1170, 1)))
-    model.add(
-        layers.Conv2D(
-            filters=2,
-            kernel_size=4,
-            strides=1,
-            padding="same",
-            use_bias=False,
-            # kernel_constraint=SpectralNormalization()
-        )
+
+    # Build U-Net model
+    inputs = tf.keras.layers.Input((786, 1170, 1))
+    s = tf.keras.layers.Lambda(lambda x: x / 255)(inputs)
+
+    c1 = tf.keras.layers.Conv2D(
+        16,
+        (3, 3),
+        activation=tf.keras.activations.elu,
+        kernel_initializer="he_normal",
+        padding="same",
+    )(s)
+    c1 = tf.keras.layers.Dropout(0.1)(c1)
+    c1 = tf.keras.layers.Conv2D(
+        16,
+        (3, 3),
+        activation=tf.keras.activations.elu,
+        kernel_initializer="he_normal",
+        padding="same",
+    )(c1)
+    p1 = tf.keras.layers.MaxPooling2D((2, 2))(c1)
+
+    c2 = tf.keras.layers.Conv2D(
+        32,
+        (3, 3),
+        activation=tf.keras.activations.elu,
+        kernel_initializer="he_normal",
+        padding="same",
+    )(p1)
+    c2 = tf.keras.layers.Dropout(0.1)(c2)
+    c2 = tf.keras.layers.Conv2D(
+        32,
+        (3, 3),
+        activation=tf.keras.activations.elu,
+        kernel_initializer="he_normal",
+        padding="same",
+    )(c2)
+    p2 = tf.keras.layers.MaxPooling2D((2, 2))(c2)
+
+    c3 = tf.keras.layers.Conv2D(
+        64,
+        (3, 3),
+        activation=tf.keras.activations.elu,
+        kernel_initializer="he_normal",
+        padding="same",
+    )(p2)
+    c3 = tf.keras.layers.Dropout(0.2)(c3)
+    c3 = tf.keras.layers.Conv2D(
+        64,
+        (3, 3),
+        activation=tf.keras.activations.elu,
+        kernel_initializer="he_normal",
+        padding="same",
+    )(c3)
+    p3 = tf.keras.layers.MaxPooling2D((2, 2))(c3)
+
+    c4 = tf.keras.layers.Conv2D(
+        128,
+        (3, 3),
+        activation=tf.keras.activations.elu,
+        kernel_initializer="he_normal",
+        padding="same",
+    )(p3)
+    c4 = tf.keras.layers.Dropout(0.2)(c4)
+    c4 = tf.keras.layers.Conv2D(
+        128,
+        (3, 3),
+        activation=tf.keras.activations.elu,
+        kernel_initializer="he_normal",
+        padding="same",
+    )(c4)
+    p4 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(c4)
+
+    c5 = tf.keras.layers.Conv2D(
+        256,
+        (3, 3),
+        activation=tf.keras.activations.elu,
+        kernel_initializer="he_normal",
+        padding="same",
+    )(p4)
+    c5 = tf.keras.layers.Dropout(0.3)(c5)
+    c5 = tf.keras.layers.Conv2D(
+        256,
+        (3, 3),
+        activation=tf.keras.activations.elu,
+        kernel_initializer="he_normal",
+        padding="same",
+    )(c5)
+
+    u6 = tf.keras.layers.Conv2DTranspose(128, (2, 2), strides=(2, 2), padding="same")(
+        c5
     )
-    model.add(layers.Dense(1, activation="linear"))
+    u6 = tf.keras.layers.concatenate([u6, c4])
+    c6 = tf.keras.layers.Conv2D(
+        128,
+        (3, 3),
+        activation=tf.keras.activations.elu,
+        kernel_initializer="he_normal",
+        padding="same",
+    )(u6)
+    c6 = tf.keras.layers.Dropout(0.2)(c6)
+    c6 = tf.keras.layers.Conv2D(
+        128,
+        (3, 3),
+        activation=tf.keras.activations.elu,
+        kernel_initializer="he_normal",
+        padding="same",
+    )(c6)
+
+    u7 = tf.keras.layers.Conv2DTranspose(64, (2, 2), strides=(2, 2), padding="same")(c6)
+    u7 = tf.keras.layers.concatenate([u7, c3])
+    c7 = tf.keras.layers.Conv2D(
+        64,
+        (3, 3),
+        activation=tf.keras.activations.elu,
+        kernel_initializer="he_normal",
+        padding="same",
+    )(u7)
+    c7 = tf.keras.layers.Dropout(0.2)(c7)
+    c7 = tf.keras.layers.Conv2D(
+        64,
+        (3, 3),
+        activation=tf.keras.activations.elu,
+        kernel_initializer="he_normal",
+        padding="same",
+    )(c7)
+
+    u8 = tf.keras.layers.Conv2DTranspose(32, (2, 2), strides=(2, 2), padding="same")(c7)
+    u8 = tf.keras.layers.concatenate([u8, c2])
+    c8 = tf.keras.layers.Conv2D(
+        32,
+        (3, 3),
+        activation=tf.keras.activations.elu,
+        kernel_initializer="he_normal",
+        padding="same",
+    )(u8)
+    c8 = tf.keras.layers.Dropout(0.1)(c8)
+    c8 = tf.keras.layers.Conv2D(
+        32,
+        (3, 3),
+        activation=tf.keras.activations.elu,
+        kernel_initializer="he_normal",
+        padding="same",
+    )(c8)
+
+    u9 = tf.keras.layers.Conv2DTranspose(16, (2, 2), strides=(2, 2), padding="same")(c8)
+    u9 = tf.keras.layers.concatenate([u9, c1], axis=3)
+    c9 = tf.keras.layers.Conv2D(
+        16,
+        (3, 3),
+        activation=tf.keras.activations.elu,
+        kernel_initializer="he_normal",
+        padding="same",
+    )(u9)
+    c9 = tf.keras.layers.Dropout(0.1)(c9)
+    c9 = tf.keras.layers.Conv2D(
+        16,
+        (3, 3),
+        activation=tf.keras.activations.elu,
+        kernel_initializer="he_normal",
+        padding="same",
+    )(c9)
+
+    outputs = tf.keras.layers.Conv2D(1, (1, 1), activation="sigmoid")(c9)
+
+    model = tf.keras.Model(inputs=[inputs], outputs=[outputs])
+    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
     model.summary()
 
     model.compile(

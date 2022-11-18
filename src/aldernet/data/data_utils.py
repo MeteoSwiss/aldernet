@@ -34,19 +34,19 @@ select_params = [
 class Batcher(tf.keras.utils.Sequence):
     """Generates data for Keras."""
 
-    def __init__(self, data, batch_size, weather, shuffle=True):
+    def __init__(self, data, batch_size, add_weather, shuffle=True):
         """Initialize."""
         self.x = data[["CORY"]].to_array("var").transpose("valid_time", ..., "var")
-        if weather:
+        if add_weather:
             self.weather = (
                 data[select_params]
-                .drop_vars(("ALNU"))
+                .drop_vars(("ALNU", "CORY"))
                 .to_array("var")
                 .transpose("valid_time", ..., "var")
             )
         self.y = data[["ALNU"]].to_array("var").transpose("valid_time", ..., "var")
         self.batch_size = batch_size
-        self.weather = weather
+        self.add_weather = add_weather
         self.shuffle = shuffle
         self.on_epoch_end()
 
@@ -58,7 +58,7 @@ class Batcher(tf.keras.utils.Sequence):
         """Generate one batch of data."""
         batch_x = self.x[idx * self.batch_size : (idx + 1) * self.batch_size]
         batch_y = self.y[idx * self.batch_size : (idx + 1) * self.batch_size]
-        if self.weather:
+        if self.add_weather:
             batch_weather = self.weather[
                 idx * self.batch_size : (idx + 1) * self.batch_size
             ]
@@ -75,7 +75,7 @@ class Batcher(tf.keras.utils.Sequence):
             shuffle_y = self.y.values
             np.random.shuffle(shuffle_y)
             self.y.values = shuffle_y
-            if self.weather:
+            if self.add_weather:
                 shuffle_weather = self.weather.values
                 np.random.shuffle(shuffle_weather)
                 self.weather.values = shuffle_weather
