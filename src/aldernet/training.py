@@ -11,6 +11,7 @@ import datetime
 import subprocess
 from contextlib import redirect_stdout
 from pathlib import Path
+import socket
 
 # Third-party
 import mlflow
@@ -46,8 +47,13 @@ run_path = str(here()) + "/output/" + datetime.datetime.now().strftime("%Y%m%d_%
 if tune_with_ray:
     Path(run_path + "/viz/valid").mkdir(parents=True, exist_ok=True)
 
-data_train = xr.open_zarr("/scratch/sadamov/aldernet/data_train.zarr")
-data_valid = xr.open_zarr("/scratch/sadamov/aldernet/data_valid.zarr")
+hostname = socket.gethostname()
+if "tsa" in hostname:
+    data_train = xr.open_zarr("/scratch/sadamov/aldernet/data_train.zarr")
+    data_valid = xr.open_zarr("/scratch/sadamov/aldernet/data_valid.zarr")
+elif "nid" in hostname:
+    data_train = xr.open_zarr("/scratch/e1000/meteoswiss/scratch/sadamov/aldernet/data_train.zarr")
+    data_valid = xr.open_zarr("/scratch/e1000/meteoswiss/scratch/sadamov/aldernet/data_valid.zarr")
 
 if tune_with_ray:
     height = data_train.CORY.shape[1]
@@ -94,7 +100,7 @@ if tune_with_ray:
             grace_period=4,
             reduction_factor=3,
         ),
-        resources_per_trial={"cpu": 1},  # Choose approriate Device
+        resources_per_trial={"gpu": 1},  # Choose approriate Device
         # stop={"training_iteration": 2},
         config={
             # define search space here
