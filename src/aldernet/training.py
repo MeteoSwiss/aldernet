@@ -8,10 +8,10 @@
 
 # Standard library
 import datetime
+import socket
 import subprocess
 from contextlib import redirect_stdout
 from pathlib import Path
-import socket
 
 # Third-party
 import mlflow
@@ -52,8 +52,12 @@ if "tsa" in hostname:
     data_train = xr.open_zarr("/scratch/sadamov/aldernet/data_train.zarr")
     data_valid = xr.open_zarr("/scratch/sadamov/aldernet/data_valid.zarr")
 elif "nid" in hostname:
-    data_train = xr.open_zarr("/scratch/e1000/meteoswiss/scratch/sadamov/aldernet/data_train.zarr")
-    data_valid = xr.open_zarr("/scratch/e1000/meteoswiss/scratch/sadamov/aldernet/data_valid.zarr")
+    data_train = xr.open_zarr(
+        "/scratch/e1000/meteoswiss/scratch/sadamov/aldernet/data_train.zarr"
+    )
+    data_valid = xr.open_zarr(
+        "/scratch/e1000/meteoswiss/scratch/sadamov/aldernet/data_valid.zarr"
+    )
 
 if tune_with_ray:
     height = data_train.CORY.shape[1]
