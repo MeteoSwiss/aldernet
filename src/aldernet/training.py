@@ -36,7 +36,8 @@ from aldernet.training_utils import train_model_simple
 tune_with_ray = False
 zoom = "data_zoom"
 noise_dim = 0
-add_weather = True
+epochs = 10
+add_weather = False
 conv = False
 # -------------------------------#
 
@@ -142,6 +143,5 @@ else:
     batcher_train = Batcher(data_train, batch_size=32, add_weather=add_weather)
     batcher_valid = Batcher(data_valid, batch_size=32, add_weather=add_weather)
     train_model_simple(
-        batcher_train, batcher_valid, epochs=500, add_weather=add_weather, conv=conv
+        batcher_train, batcher_valid, epochs=epochs, add_weather=add_weather, conv=conv
     )
-j
