@@ -27,17 +27,18 @@ from tensorflow import random
 # First-party
 from aldernet.data.data_utils import Batcher
 from aldernet.training_utils import compile_generator
+from aldernet.training_utils import define_filters
 from aldernet.training_utils import tf_setup
 from aldernet.training_utils import train_model
 from aldernet.training_utils import train_model_simple
 
 # ---> DEFINE SETTINGS HERE <--- #
-tune_with_ray = True
-noise_dim = 100
+tune_with_ray = False
+zoom = "data_zoom"
+noise_dim = 0
 add_weather = True
+conv = False
 # -------------------------------#
-if not tune_with_ray:
-    add_weather = False
 
 
 tf_setup()
@@ -49,14 +50,18 @@ if tune_with_ray:
 
 hostname = socket.gethostname()
 if "tsa" in hostname:
-    data_train = xr.open_zarr("/scratch/sadamov/aldernet/data_train.zarr")
-    data_valid = xr.open_zarr("/scratch/sadamov/aldernet/data_valid.zarr")
+    data_train = xr.open_zarr("/scratch/sadamov/aldernet/" + zoom + "/data_train.zarr")
+    data_valid = xr.open_zarr("/scratch/sadamov/aldernet/" + zoom + "/data_valid.zarr")
 elif "nid" in hostname:
     data_train = xr.open_zarr(
-        "/scratch/e1000/meteoswiss/scratch/sadamov/aldernet/data_train.zarr"
+        "/scratch/e1000/meteoswiss/scratch/sadamov/aldernet/"
+        + zoom
+        + "/data_train.zarr"
     )
     data_valid = xr.open_zarr(
-        "/scratch/e1000/meteoswiss/scratch/sadamov/aldernet/data_valid.zarr"
+        "/scratch/e1000/meteoswiss/scratch/sadamov/aldernet/"
+        + zoom
+        + "/data_valid.zarr"
     )
 
 if tune_with_ray:
@@ -66,7 +71,8 @@ if tune_with_ray:
         weather_features = len(data_train.drop_vars(("ALNU", "CORY")).data_vars)
     else:
         weather_features = 0
-    generator = compile_generator(height, width, weather_features, noise_dim)
+    filters = define_filters(zoom)
+    generator = compile_generator(height, width, weather_features, noise_dim, filters)
 
     with open(run_path + "/generator_summary.txt", "w") as handle:
         with redirect_stdout(handle):
@@ -135,7 +141,7 @@ if tune_with_ray:
 else:
     batcher_train = Batcher(data_train, batch_size=32, add_weather=add_weather)
     batcher_valid = Batcher(data_valid, batch_size=32, add_weather=add_weather)
-    if add_weather:
-        batcher_train.x = batcher_train.x + batcher_train.weather
-        batcher_train.weather = None
-    train_model_simple(batcher_train, batcher_valid, epochs=3)
+    train_model_simple(
+        batcher_train, batcher_valid, epochs=500, add_weather=add_weather, conv=conv
+    )
+j

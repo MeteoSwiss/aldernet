@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
 import tensorflow as tf
+import xarray as xr
 from keras import layers
 from keras.constraints import Constraint
 from pyprojroot import here
@@ -27,8 +28,15 @@ from ray.air import session
 # First-party
 from aldernet.data.data_utils import Batcher
 
-filters = [64, 128, 256, 512, 1024, 1024, 512, 768, 640, 448, 288, 352]
-filters[:] = [x / 16 for x in filters]
+
+def define_filters(zoom):
+    filters = [64, 128, 256, 512, 1024, 1024, 512, 768, 640, 448, 288, 352]
+
+    if zoom == "":
+        filters[:] = [x / 16 for x in filters]
+
+    return filters
+
 
 ##########################
 
@@ -113,7 +121,7 @@ def down(filters, name=None):
     )
     block.add(layers.BatchNormalization())
     block.add(layers.LeakyReLU())
-    # block.add(layers.MaxPooling2D((2, 2)))
+    # block.add(layers.MaxPooling2D((2, 2), padding="same"))
     # block.add(layers.Dropout(0.05))
 
     return block
@@ -141,7 +149,7 @@ def up(filters, name=None):
 ##########################
 
 
-def compile_generator(height, width, weather_features, noise_dim):
+def compile_generator(height, width, weather_features, noise_dim, filters):
     image_input = keras.Input(shape=[height, width, 1], name="image_input")
     if weather_features > 0:
         weather_input = keras.Input(
@@ -173,7 +181,7 @@ def compile_generator(height, width, weather_features, noise_dim):
     for ll in range(len(filters) // 2, len(filters) - 1):
 
         block = up(filters[ll], "up_%s-up" % (len(filters) - ll - 1))(block)
-        if ll > len(filters) // 2 and ll < len(filters) - 2:
+        if block.shape != u_skip_layers[-1].shape:
             block = layers.Cropping2D(cropping=((1, 0), (1, 0)), data_format=None)(
                 block
             )
@@ -517,174 +525,221 @@ def train_model(
             epoch.assign_add(1)
 
 
-def train_model_simple(data_training, data_valid, epochs):
+def train_model_simple(data_train, data_valid, epochs, add_weather, conv=True):
 
+    if add_weather:
+        data_train.x = xr.concat([data_train.x, data_train.weather], dim="var")
+        data_valid.x = xr.concat([data_valid.x, data_valid.weather], dim="var")
+    inputs = keras.Input(
+        shape=[data_train.x.shape[1], data_train.x.shape[2], data_train.x.shape[3]]
+    )
     # Build U-Net model
-    inputs = tf.keras.layers.Input((786, 1170, 1))
     s = tf.keras.layers.Lambda(lambda x: x / 255)(inputs)
 
-    c1 = tf.keras.layers.Conv2D(
-        16,
-        (3, 3),
-        activation=tf.keras.activations.elu,
-        kernel_initializer="he_normal",
-        padding="same",
-    )(s)
-    c1 = tf.keras.layers.Dropout(0.1)(c1)
-    c1 = tf.keras.layers.Conv2D(
-        16,
-        (3, 3),
-        activation=tf.keras.activations.elu,
-        kernel_initializer="he_normal",
-        padding="same",
-    )(c1)
-    p1 = tf.keras.layers.MaxPooling2D((2, 2))(c1)
+    if conv:
+        c1 = tf.keras.layers.Conv2D(
+            16,
+            (3, 3),
+            activation=tf.keras.activations.elu,
+            kernel_initializer="he_normal",
+            padding="same",
+        )(s)
+        c1 = tf.keras.layers.Dropout(0.1)(c1)
+        c1 = tf.keras.layers.Conv2D(
+            16,
+            (3, 3),
+            activation=tf.keras.activations.elu,
+            kernel_initializer="he_normal",
+            padding="same",
+        )(c1)
+        p1 = tf.keras.layers.MaxPooling2D((2, 2), padding="same")(c1)
 
-    c2 = tf.keras.layers.Conv2D(
-        32,
-        (3, 3),
-        activation=tf.keras.activations.elu,
-        kernel_initializer="he_normal",
-        padding="same",
-    )(p1)
-    c2 = tf.keras.layers.Dropout(0.1)(c2)
-    c2 = tf.keras.layers.Conv2D(
-        32,
-        (3, 3),
-        activation=tf.keras.activations.elu,
-        kernel_initializer="he_normal",
-        padding="same",
-    )(c2)
-    p2 = tf.keras.layers.MaxPooling2D((2, 2))(c2)
+        c2 = tf.keras.layers.Conv2D(
+            32,
+            (3, 3),
+            activation=tf.keras.activations.elu,
+            kernel_initializer="he_normal",
+            padding="same",
+        )(p1)
+        c2 = tf.keras.layers.Dropout(0.1)(c2)
+        c2 = tf.keras.layers.Conv2D(
+            32,
+            (3, 3),
+            activation=tf.keras.activations.elu,
+            kernel_initializer="he_normal",
+            padding="same",
+        )(c2)
+        p2 = tf.keras.layers.MaxPooling2D((2, 2), padding="same")(c2)
 
-    c3 = tf.keras.layers.Conv2D(
-        64,
-        (3, 3),
-        activation=tf.keras.activations.elu,
-        kernel_initializer="he_normal",
-        padding="same",
-    )(p2)
-    c3 = tf.keras.layers.Dropout(0.2)(c3)
-    c3 = tf.keras.layers.Conv2D(
-        64,
-        (3, 3),
-        activation=tf.keras.activations.elu,
-        kernel_initializer="he_normal",
-        padding="same",
-    )(c3)
-    p3 = tf.keras.layers.MaxPooling2D((2, 2))(c3)
+        c3 = tf.keras.layers.Conv2D(
+            64,
+            (3, 3),
+            activation=tf.keras.activations.elu,
+            kernel_initializer="he_normal",
+            padding="same",
+        )(p2)
+        c3 = tf.keras.layers.Dropout(0.2)(c3)
+        c3 = tf.keras.layers.Conv2D(
+            64,
+            (3, 3),
+            activation=tf.keras.activations.elu,
+            kernel_initializer="he_normal",
+            padding="same",
+        )(c3)
+        p3 = tf.keras.layers.MaxPooling2D((2, 2), padding="same")(c3)
 
-    c4 = tf.keras.layers.Conv2D(
-        128,
-        (3, 3),
-        activation=tf.keras.activations.elu,
-        kernel_initializer="he_normal",
-        padding="same",
-    )(p3)
-    c4 = tf.keras.layers.Dropout(0.2)(c4)
-    c4 = tf.keras.layers.Conv2D(
-        128,
-        (3, 3),
-        activation=tf.keras.activations.elu,
-        kernel_initializer="he_normal",
-        padding="same",
-    )(c4)
-    p4 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(c4)
+        c4 = tf.keras.layers.Conv2D(
+            128,
+            (3, 3),
+            activation=tf.keras.activations.elu,
+            kernel_initializer="he_normal",
+            padding="same",
+        )(p3)
+        c4 = tf.keras.layers.Dropout(0.2)(c4)
+        c4 = tf.keras.layers.Conv2D(
+            128,
+            (3, 3),
+            activation=tf.keras.activations.elu,
+            kernel_initializer="he_normal",
+            padding="same",
+        )(c4)
+        p4 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), padding="same")(c4)
 
-    c5 = tf.keras.layers.Conv2D(
-        256,
-        (3, 3),
-        activation=tf.keras.activations.elu,
-        kernel_initializer="he_normal",
-        padding="same",
-    )(p4)
-    c5 = tf.keras.layers.Dropout(0.3)(c5)
-    c5 = tf.keras.layers.Conv2D(
-        256,
-        (3, 3),
-        activation=tf.keras.activations.elu,
-        kernel_initializer="he_normal",
-        padding="same",
-    )(c5)
+        c5 = tf.keras.layers.Conv2D(
+            256,
+            (3, 3),
+            activation=tf.keras.activations.elu,
+            kernel_initializer="he_normal",
+            padding="same",
+        )(p4)
+        c5 = tf.keras.layers.Dropout(0.3)(c5)
+        c5 = tf.keras.layers.Conv2D(
+            256,
+            (3, 3),
+            activation=tf.keras.activations.elu,
+            kernel_initializer="he_normal",
+            padding="same",
+        )(c5)
 
-    u6 = tf.keras.layers.Conv2DTranspose(128, (2, 2), strides=(2, 2), padding="same")(
-        c5
-    )
-    u6 = tf.keras.layers.concatenate([u6, c4])
-    c6 = tf.keras.layers.Conv2D(
-        128,
-        (3, 3),
-        activation=tf.keras.activations.elu,
-        kernel_initializer="he_normal",
-        padding="same",
-    )(u6)
-    c6 = tf.keras.layers.Dropout(0.2)(c6)
-    c6 = tf.keras.layers.Conv2D(
-        128,
-        (3, 3),
-        activation=tf.keras.activations.elu,
-        kernel_initializer="he_normal",
-        padding="same",
-    )(c6)
+        u6 = tf.keras.layers.Conv2DTranspose(
+            128, (2, 2), strides=(2, 2), padding="same"
+        )(c5)
+        if u6.shape != c4.shape:
+            u6 = layers.Cropping2D(cropping=((1, 0), (1, 0)), data_format=None)(u6)
+        u6 = tf.keras.layers.concatenate([u6, c4])
+        c6 = tf.keras.layers.Conv2D(
+            128,
+            (3, 3),
+            activation=tf.keras.activations.elu,
+            kernel_initializer="he_normal",
+            padding="same",
+        )(u6)
+        c6 = tf.keras.layers.Dropout(0.2)(c6)
+        c6 = tf.keras.layers.Conv2D(
+            128,
+            (3, 3),
+            activation=tf.keras.activations.elu,
+            kernel_initializer="he_normal",
+            padding="same",
+        )(c6)
 
-    u7 = tf.keras.layers.Conv2DTranspose(64, (2, 2), strides=(2, 2), padding="same")(c6)
-    u7 = tf.keras.layers.concatenate([u7, c3])
-    c7 = tf.keras.layers.Conv2D(
-        64,
-        (3, 3),
-        activation=tf.keras.activations.elu,
-        kernel_initializer="he_normal",
-        padding="same",
-    )(u7)
-    c7 = tf.keras.layers.Dropout(0.2)(c7)
-    c7 = tf.keras.layers.Conv2D(
-        64,
-        (3, 3),
-        activation=tf.keras.activations.elu,
-        kernel_initializer="he_normal",
-        padding="same",
-    )(c7)
+        u7 = tf.keras.layers.Conv2DTranspose(
+            64, (2, 2), strides=(2, 2), padding="same"
+        )(c6)
+        if u7.shape != c3.shape:
+            u7 = layers.Cropping2D(cropping=((1, 0), (1, 0)), data_format=None)(u7)
+        u7 = tf.keras.layers.concatenate([u7, c3])
+        c7 = tf.keras.layers.Conv2D(
+            64,
+            (3, 3),
+            activation=tf.keras.activations.elu,
+            kernel_initializer="he_normal",
+            padding="same",
+        )(u7)
+        c7 = tf.keras.layers.Dropout(0.2)(c7)
+        c7 = tf.keras.layers.Conv2D(
+            64,
+            (3, 3),
+            activation=tf.keras.activations.elu,
+            kernel_initializer="he_normal",
+            padding="same",
+        )(c7)
 
-    u8 = tf.keras.layers.Conv2DTranspose(32, (2, 2), strides=(2, 2), padding="same")(c7)
-    u8 = tf.keras.layers.concatenate([u8, c2])
-    c8 = tf.keras.layers.Conv2D(
-        32,
-        (3, 3),
-        activation=tf.keras.activations.elu,
-        kernel_initializer="he_normal",
-        padding="same",
-    )(u8)
-    c8 = tf.keras.layers.Dropout(0.1)(c8)
-    c8 = tf.keras.layers.Conv2D(
-        32,
-        (3, 3),
-        activation=tf.keras.activations.elu,
-        kernel_initializer="he_normal",
-        padding="same",
-    )(c8)
+        u8 = tf.keras.layers.Conv2DTranspose(
+            32, (2, 2), strides=(2, 2), padding="same"
+        )(c7)
+        if u8.shape != c2.shape:
+            u8 = layers.Cropping2D(cropping=((1, 0), (1, 0)), data_format=None)(u8)
+        u8 = tf.keras.layers.concatenate([u8, c2])
+        c8 = tf.keras.layers.Conv2D(
+            32,
+            (3, 3),
+            activation=tf.keras.activations.elu,
+            kernel_initializer="he_normal",
+            padding="same",
+        )(u8)
+        c8 = tf.keras.layers.Dropout(0.1)(c8)
+        c8 = tf.keras.layers.Conv2D(
+            32,
+            (3, 3),
+            activation=tf.keras.activations.elu,
+            kernel_initializer="he_normal",
+            padding="same",
+        )(c8)
 
-    u9 = tf.keras.layers.Conv2DTranspose(16, (2, 2), strides=(2, 2), padding="same")(c8)
-    u9 = tf.keras.layers.concatenate([u9, c1], axis=3)
-    c9 = tf.keras.layers.Conv2D(
-        16,
-        (3, 3),
-        activation=tf.keras.activations.elu,
-        kernel_initializer="he_normal",
-        padding="same",
-    )(u9)
-    c9 = tf.keras.layers.Dropout(0.1)(c9)
-    c9 = tf.keras.layers.Conv2D(
-        16,
-        (3, 3),
-        activation=tf.keras.activations.elu,
-        kernel_initializer="he_normal",
-        padding="same",
-    )(c9)
+        u9 = tf.keras.layers.Conv2DTranspose(
+            16, (2, 2), strides=(2, 2), padding="same"
+        )(c8)
+        if u9.shape != c1.shape:
+            u9 = layers.Cropping2D(cropping=((1, 0), (1, 0)), data_format=None)(u9)
+        u9 = tf.keras.layers.concatenate([u9, c1], axis=3)
+        c9 = tf.keras.layers.Conv2D(
+            16,
+            (3, 3),
+            activation=tf.keras.activations.elu,
+            kernel_initializer="he_normal",
+            padding="same",
+        )(u9)
+        c9 = tf.keras.layers.Dropout(0.1)(c9)
+        c9 = tf.keras.layers.Conv2D(
+            16,
+            (3, 3),
+            activation=tf.keras.activations.elu,
+            kernel_initializer="he_normal",
+            padding="same",
+        )(c9)
 
-    outputs = tf.keras.layers.Conv2D(1, (1, 1), activation="sigmoid")(c9)
+        outputs = tf.keras.layers.Conv2D(1, (1, 1), activation="sigmoid")(c9)
 
-    model = tf.keras.Model(inputs=[inputs], outputs=[outputs])
-    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
+        model = tf.keras.Model(inputs=[inputs], outputs=[outputs])
+        model.compile(
+            optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"]
+        )
+    else:
+        model = keras.models.Sequential()
+        model.add(
+            layers.Dense(
+                1,
+                input_shape=(
+                    [
+                        data_train.x.shape[1],
+                        data_train.x.shape[2],
+                        data_train.x.shape[3],
+                    ]
+                ),
+            )
+        )
+        model.add(
+            layers.Conv2D(
+                filters=2,
+                kernel_size=4,
+                strides=1,
+                padding="same",
+                use_bias=False,
+                # kernel_constraint=SpectralNormalization()
+            )
+        )
+        model.add(layers.Dense(1, activation="linear"))
     model.summary()
 
     model.compile(
@@ -693,7 +748,7 @@ def train_model_simple(data_training, data_valid, epochs):
         metrics=["mae"],
     )
 
-    model.fit(data_training, epochs=epochs)
+    model.fit(data_train, epochs=epochs)
     predictions = model.predict(data_valid)
     for timestep in range(0, predictions.shape[0], 100):
         write_png(
