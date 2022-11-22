@@ -48,7 +48,7 @@ print(f"Using {device} device")
 
 model = Unet(dim=64, dim_mults=(1, 2, 4, 8), channels=1).cuda()
 diffusion = GaussianDiffusion(
-    model, image_size=64, timesteps=100000, loss_type="l1"
+    model, image_size=64, timesteps=1000, loss_type="l1"
 ).cuda()
 
 training_images = torch.from_numpy(data_img).cuda()
