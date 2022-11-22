@@ -7,7 +7,6 @@ import socket
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import torchvision
 import xarray as xr
 from denoising_diffusion_pytorch import GaussianDiffusion
 from denoising_diffusion_pytorch import Unet
@@ -16,6 +15,11 @@ from denoising_diffusion_pytorch import Unet
 def show(img):
     npimg = img.numpy()
     plt.imshow(np.transpose(npimg, (1, 2, 0)), interpolation="nearest")
+
+
+def save(img):
+    npimg = img.numpy()
+    plt.imsave(np.transpose(npimg, (1, 2, 0)), interpolation="nearest")
 
 
 zoom = ""
@@ -60,9 +64,9 @@ sampled_images = diffusion.sample(batch_size=4).cuda()
 show(training_images.cpu()[0])
 show(sampled_images.cpu()[0])
 
-torchvision.utils.save_image(sampled_images.cpu()[0], "sample1.png")
-torchvision.utils.save_image(sampled_images.cpu()[1], "sample2.png")
-torchvision.utils.save_image(sampled_images.cpu()[2], "sample3.png")
-torchvision.utils.save_image(sampled_images.cpu()[3], "sample4.png")
+save(sampled_images.cpu()[0], "sample1.png")
+save(sampled_images.cpu()[1], "sample2.png")
+save(sampled_images.cpu()[2], "sample3.png")
+save(sampled_images.cpu()[3], "sample4.png")
 
 torch.cuda.empty_cache()
