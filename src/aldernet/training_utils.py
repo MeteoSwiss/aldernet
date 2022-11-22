@@ -179,9 +179,8 @@ def compile_generator(height, width, weather_features, noise_dim, filters):
     u_skip_layers.pop()
 
     for ll in range(len(filters) // 2, len(filters) - 1):
-
         block = up(filters[ll], "up_%s-up" % (len(filters) - ll - 1))(block)
-        if block.shape != u_skip_layers[-1].shape:
+        if block.shape[slice(1, 2)] != u_skip_layers[-1].shape[slice(1, 2)]:
             block = layers.Cropping2D(cropping=((1, 0), (1, 0)), data_format=None)(
                 block
             )
@@ -293,11 +292,15 @@ def gan_step(
 
 
 def train_model(
-    config, generator, data_train, data_valid, run_path, noise_dim, add_weather
+    config, generator, data_train, data_valid, run_path, noise_dim, add_weather, shuffle
 ):
 
-    data_train = Batcher(data_train, batch_size=32, add_weather=add_weather)
-    data_valid = Batcher(data_valid, batch_size=32, add_weather=add_weather)
+    data_train = Batcher(
+        data_train, batch_size=32, add_weather=add_weather, shuffle=shuffle
+    )
+    data_valid = Batcher(
+        data_valid, batch_size=32, add_weather=add_weather, shuffle=shuffle
+    )
 
     mlflow.set_tracking_uri(run_path + "/mlruns")
     mlflow.set_experiment("Aldernet")
@@ -418,8 +421,9 @@ def train_model(
             )
 
             epoch.assign_add(1)
-            data_train.on_epoch_end()
-            data_valid.on_epoch_end()
+            if shuffle:
+                data_train.on_epoch_end()
+                data_valid.on_epoch_end()
 
         else:
             start = time.time()
@@ -523,6 +527,9 @@ def train_model(
                 }
             )
             epoch.assign_add(1)
+            if shuffle:
+                data_train.on_epoch_end()
+                data_valid.on_epoch_end()
 
 
 def train_model_simple(data_train, data_valid, epochs, add_weather, conv=True):

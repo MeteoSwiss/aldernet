@@ -33,11 +33,12 @@ from aldernet.training_utils import train_model
 from aldernet.training_utils import train_model_simple
 
 # ---> DEFINE SETTINGS HERE <--- #
-tune_with_ray = False
-zoom = "data_zoom"
+tune_with_ray = True
+zoom = ""
 noise_dim = 0
 epochs = 10
-add_weather = False
+shuffle = False
+add_weather = True
 conv = False
 # -------------------------------#
 
@@ -100,6 +101,7 @@ if tune_with_ray:
             run_path=run_path,
             noise_dim=noise_dim,
             add_weather=add_weather,
+            shuffle=shuffle,
         ),
         # metric="Loss",
         num_samples=1,
@@ -107,7 +109,7 @@ if tune_with_ray:
             time_attr="training_iteration",
             metric="Loss",
             mode="min",
-            max_t=10,
+            max_t=epochs,
             grace_period=4,
             reduction_factor=3,
         ),
@@ -140,8 +142,12 @@ if tune_with_ray:
     rsync_cmd = "rsync" + " -avzh " + run_path + "/mlruns" + " " + str(here())
     subprocess.run(rsync_cmd, shell=True)
 else:
-    batcher_train = Batcher(data_train, batch_size=32, add_weather=add_weather)
-    batcher_valid = Batcher(data_valid, batch_size=32, add_weather=add_weather)
+    batcher_train = Batcher(
+        data_train, batch_size=32, add_weather=add_weather, shuffle=shuffle
+    )
+    batcher_valid = Batcher(
+        data_valid, batch_size=32, add_weather=add_weather, shuffle=shuffle
+    )
     train_model_simple(
         batcher_train, batcher_valid, epochs=epochs, add_weather=add_weather, conv=conv
     )
