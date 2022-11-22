@@ -19,6 +19,7 @@ import numpy as np
 import tensorflow as tf
 from keras import layers
 from keras.constraints import Constraint
+from pyprojroot import here
 from ray import tune
 from ray.air import session
 
@@ -564,6 +565,6 @@ def train_model_simple(
                 valid_target[timestep],
                 predictions[timestep],
             ),
-            "./output/prediction" + str(timestep) + ".png",
+            str(here()) + "/output/prediction" + str(timestep) + ".png",
             pretty=True,
         )

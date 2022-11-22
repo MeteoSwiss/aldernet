@@ -30,9 +30,9 @@ from aldernet.training_utils import train_model
 from aldernet.training_utils import train_model_simple
 
 # ---> DEFINE SETTINGS HERE <--- #
-tune_with_ray = True
-noise_dim = 100
-add_weather = True
+tune_with_ray = False
+noise_dim = 0
+add_weather = False
 filter_time = 4344
 # -------------------------------#
 
@@ -127,4 +127,4 @@ if tune_with_ray:
     rsync_cmd = "rsync" + " -avzh " + run_path + "/mlruns" + " " + str(here())
     subprocess.run(rsync_cmd, shell=True)
 else:
-    train_model_simple(hazel_train, alder_train, hazel_valid, alder_valid, epochs=10)
+    train_model_simple(hazel_train, alder_train, hazel_valid, alder_valid, epochs=100)
