@@ -36,9 +36,9 @@ from aldernet.training_utils import train_model_simple
 tune_with_ray = True
 zoom = ""
 noise_dim = 0
-epochs = 10
+epochs = 3
 shuffle = False
-add_weather = True
+add_weather = False
 conv = False
 # -------------------------------#
 
@@ -52,8 +52,12 @@ if tune_with_ray:
 
 hostname = socket.gethostname()
 if "tsa" in hostname:
-    data_train = xr.open_zarr("/scratch/sadamov/aldernet/" + zoom + "/data_train.zarr")
-    data_valid = xr.open_zarr("/scratch/sadamov/aldernet/" + zoom + "/data_valid.zarr")
+    data_train = xr.open_zarr(
+        "/scratch/sadamov/pyprojects_data/aldernet/" + zoom + "/data_train.zarr"
+    )
+    data_valid = xr.open_zarr(
+        "/scratch/sadamov/pyprojects_data/aldernet/" + zoom + "/data_valid.zarr"
+    )
 elif "nid" in hostname:
     data_train = xr.open_zarr(
         "/scratch/e1000/meteoswiss/scratch/sadamov/aldernet/"
@@ -110,7 +114,7 @@ if tune_with_ray:
             metric="Loss",
             mode="min",
             max_t=epochs,
-            grace_period=4,
+            grace_period=3,
             reduction_factor=3,
         ),
         resources_per_trial={"gpu": 1},  # Choose approriate Device

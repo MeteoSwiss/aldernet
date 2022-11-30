@@ -17,11 +17,6 @@ def show(img):
     plt.imshow(np.transpose(npimg, (1, 2, 0)), interpolation="nearest")
 
 
-def save(img):
-    npimg = img.numpy()
-    plt.imsave(np.transpose(npimg, (1, 2, 0)), interpolation="nearest")
-
-
 zoom = ""
 hostname = socket.gethostname()
 if "tsa" in hostname:
@@ -50,7 +45,7 @@ data_img = (
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using {device} device")
 
-model = Unet(dim=64, dim_mults=(1, 2, 4, 8), channels=1).cuda()
+model = Unet(dim=64, dim_mults=(1, 2, 4, 8, 16, 32, 64), channels=1).cuda()
 diffusion = GaussianDiffusion(
     model, image_size=64, timesteps=1000, loss_type="l1"
 ).cuda()
@@ -64,9 +59,9 @@ sampled_images = diffusion.sample(batch_size=4).cuda()
 show(training_images.cpu()[0])
 show(sampled_images.cpu()[0])
 
-save(sampled_images.cpu()[0], "sample1.png")
-save(sampled_images.cpu()[1], "sample2.png")
-save(sampled_images.cpu()[2], "sample3.png")
-save(sampled_images.cpu()[3], "sample4.png")
+plt.imsave("sample1.png", sampled_images.cpu()[0][0, :, :])
+plt.imsave("sample2.png", sampled_images.cpu()[1][0, :, :])
+plt.imsave("sample3.png", sampled_images.cpu()[2][0, :, :])
+plt.imsave("sample4.png", sampled_images.cpu()[3][0, :, :])
 
 torch.cuda.empty_cache()
