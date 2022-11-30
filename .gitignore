@@ -112,5 +112,19 @@ venv_*/
 
 # Project Specific
 code_yinghao
-outputs/map*
-outputs/my_awesome.gif
+outputs/*
+images
+annotations
+oxford_segmentation.h5
+data/*
+mlruns
+run__
+src/photocast_utils.py-jvsc*.ipynb
+src/training_utils.py-jvsc*.ipynb
+output
+src/training_utils.py
+test.png
+.gitignore
+src/test.py
+src/other_repos
+src/aldernet/sample*
