@@ -2,10 +2,18 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python>=3.10
-  - pip
+  - cfgrib
   - click
-  - pytest
+  - keras
+  - matplotlib
+  - mlflow
+  - numpy
   - pip
+  - pyprojroot
+  - pytest
+  - python>=3.10
+  - tensorflow
+  - torch
+  - xarray
   - pip:
-    # add pip requirements here if needed.
+    - ray
