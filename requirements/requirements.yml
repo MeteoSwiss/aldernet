@@ -17,3 +17,4 @@ dependencies:
   - pip:
     - ray
     - torch
+    - denoising_diffusion_pytorch
