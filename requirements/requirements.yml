@@ -13,7 +13,7 @@ dependencies:
   - pytest
   - python>=3.10
   - tensorflow
-  - torch
   - xarray
   - pip:
     - ray
+    - torch
