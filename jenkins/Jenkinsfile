@@ -1,0 +1,123 @@
+pipeline {
+    environment {
+       PATH = "$WORKSPACE/miniconda/bin:$PATH"
+    }
+    agent {
+        label 'tsa'
+    }
+
+    post {
+        always{
+            echo 'Cleaning up workspace'
+            deleteDir()
+        }
+    }
+    stages {
+        stage('setup miniconda') {
+            steps {
+                sh '''#!/usr/bin/env bash
+                set -e
+                bash setup_miniconda.sh -p ${WORKSPACE}
+                '''
+            }
+        }
+        stage('build package') {
+            steps {
+                sh '''#!/usr/bin/env bash
+                set -e
+                cd ${WORKSPACE}/aldernet
+                source ${WORKSPACE}/miniconda/etc/profile.d/conda.sh
+                conda init bash
+                conda activate
+                ./setup_env.sh -n aldernet -u
+                conda activate aldernet
+                pip install --no-deps .
+                '''
+            }
+        }
+        stage('test') {
+            steps {
+                sh '''#!/usr/bin/env bash
+                source $WORKSPACE/miniconda/etc/profile.d/conda.sh
+                conda init bash
+                conda activate aldernet
+                cd ${WORKSPACE}/aldernet
+                pytest tests
+                '''
+            }
+        }
+        stage('dev-environment') {
+            steps {
+                sh '''#!/usr/bin/env bash
+                set -e
+                source $WORKSPACE/miniconda/etc/profile.d/conda.sh
+                conda init bash
+                conda activate
+                cd ${WORKSPACE}/aldernet
+                ./setup_env.sh -n aldernet -d -u
+                conda activate dev-aldernet
+                pip install --no-deps --editable .
+                '''
+            }
+        }
+        stage('dev-test') {
+            steps {
+                sh '''#!/usr/bin/env bash
+                source $WORKSPACE/miniconda/etc/profile.d/conda.sh
+                conda init bash
+                conda activate dev-aldernet
+                cd ${WORKSPACE}/aldernet
+                pytest tests
+                '''
+            }
+        }
+        stage('pinned-environment') {
+            steps {
+                sh '''#!/usr/bin/env bash
+                set -e
+                source $WORKSPACE/miniconda/etc/profile.d/conda.sh
+                conda init bash
+                conda activate
+                cd ${WORKSPACE}/aldernet
+                ./setup_env.sh -n pinned-aldernet
+                conda activate pinned-aldernet
+                pip install --no-deps .
+                '''
+            }
+        }
+        stage('pinned-test') {
+            steps {
+                sh '''#!/usr/bin/env bash
+                source $WORKSPACE/miniconda/etc/profile.d/conda.sh
+                conda activate pinned-aldernet
+                cd ${WORKSPACE}/aldernet
+                pytest tests
+                '''
+            }
+        }
+        stage('pinned-dev-environment') {
+            steps {
+                sh '''#!/usr/bin/env bash
+                set -e
+                source $WORKSPACE/miniconda/etc/profile.d/conda.sh
+                conda init bash
+                conda activate
+                cd ${WORKSPACE}/aldernet
+                ./setup_env.sh -n pinned-aldernet -d
+                conda activate pinned-dev-aldernet
+                pip install --no-deps --editable .
+                '''
+            }
+        }
+        stage('pinned-dev-test') {
+            steps {
+                sh '''#!/usr/bin/env bash
+                source $WORKSPACE/miniconda/etc/profile.d/conda.sh
+                conda activate pinned-dev-aldernet
+                cd ${WORKSPACE}/aldernet
+                pytest tests
+                '''
+            }
+        }
+    }
+}

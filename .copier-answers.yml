@@ -1,0 +1,15 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: v0.2.0
+_src_path: git@github.com:MeteoSwiss-APN/mch-python-blueprint.git
+email: simon.adamov@meteoswiss.ch
+full_name: Simon Adamov
+github_username: sadamov
+module_name: aldernet
+project_github: MeteoSwiss-APN/aldernet
+project_name: Aldernet
+project_short_description: Aldernet
+project_slug: aldernet
+python_version: '3.10'
+version: 0.1.0
+year: '2022'
+

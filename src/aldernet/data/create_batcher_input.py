@@ -1,5 +1,7 @@
 """Import and preprocess the data."""
 
+# pylint: disable=R0801
+
 # Third-party
 import numpy as np
 import xarray as xr

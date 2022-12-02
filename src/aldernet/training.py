@@ -14,15 +14,15 @@ from contextlib import redirect_stdout
 from pathlib import Path
 
 # Third-party
-import mlflow
+import mlflow  # type: ignore
 import xarray as xr
-from keras.utils import plot_model
-from pyprojroot import here
+from keras.utils import plot_model  # type: ignore
+from pyprojroot import here  # type: ignore
 from ray import init
 from ray import shutdown
 from ray import tune
 from ray.air.callbacks.mlflow import MLflowLoggerCallback
-from tensorflow import random
+from tensorflow import random  # type: ignore
 
 # First-party
 from aldernet.data.data_utils import Batcher
@@ -80,7 +80,7 @@ if tune_with_ray:
     filters = define_filters(zoom)
     generator = compile_generator(height, width, weather_features, noise_dim, filters)
 
-    with open(run_path + "/generator_summary.txt", "w") as handle:
+    with open(run_path + "/generator_summary.txt", "w", encoding="UTF-8") as handle:
         with redirect_stdout(handle):
             generator.summary()
     plot_model(generator, to_file=run_path + "/generator.png", show_shapes=True, dpi=96)
@@ -117,7 +117,7 @@ if tune_with_ray:
             grace_period=3,
             reduction_factor=3,
         ),
-        resources_per_trial={"gpu": 1},  # Choose approriate Device
+        resources_per_trial={"gpu": 1},  # Choose appropriate Device
         # stop={"training_iteration": 2},
         config={
             # define search space here
@@ -144,7 +144,7 @@ if tune_with_ray:
     )
     # rsync commands to merge the mlruns directories
     rsync_cmd = "rsync" + " -avzh " + run_path + "/mlruns" + " " + str(here())
-    subprocess.run(rsync_cmd, shell=True)
+    subprocess.run(rsync_cmd, shell=True, check=True)
 else:
     batcher_train = Batcher(
         data_train, batch_size=32, add_weather=add_weather, shuffle=shuffle

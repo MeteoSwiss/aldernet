@@ -7,23 +7,25 @@ To create realistic Images of Pollen Surface Concentration Maps.
 # Distributed under the terms of the BSD 3-Clause License.
 # SPDX-License-Identifier: BSD-3-Clause
 
+# pylint: disable=no-member
+
 # Standard library
 import math
 import time
 from pathlib import Path
 
 # Third-party
-import keras
-import matplotlib.pyplot as plt
-import mlflow
+import keras  # type: ignore
+import matplotlib.pyplot as plt  # type: ignore
+import mlflow  # type: ignore
 import numpy as np
-import tensorflow as tf
+import tensorflow as tf  # type: ignore
 import xarray as xr
 from keras import layers
-from keras.constraints import Constraint
-from pyprojroot import here
+from keras.constraints import Constraint  # type: ignore
+from pyprojroot import here  # type: ignore
+from ray import air
 from ray import tune
-from ray.air import session
 
 # First-party
 from aldernet.data.data_utils import Batcher
@@ -62,7 +64,7 @@ class SpectralNormalization(Constraint):
 
     def __call__(self, w):
         output_neurons = w.shape[-1]
-        W_ = tf.reshape(w, [-1, output_neurons])
+        w_ = tf.reshape(w, [-1, output_neurons])
         if self.u is None:
             self.u = tf.Variable(
                 initial_value=tf.random_normal_initializer()(
@@ -74,13 +76,13 @@ class SpectralNormalization(Constraint):
         u_ = self.u
         v_ = None
         for _ in range(self.iterations):
-            v_ = tf.matvec(W_, u_)
+            v_ = tf.matvec(w_, u_)
             v_ = tf.l2_normalize(v_)
 
-            u_ = tf.matvec(W_, v_, transpose_a=True)
+            u_ = tf.matvec(w_, v_, transpose_a=True)
             u_ = tf.l2_normalize(u_)
 
-        sigma = tf.tensordot(u_, tf.matvec(W_, v_, transpose_a=True), axes=1)
+        sigma = tf.tensordot(u_, tf.matvec(w_, v_, transpose_a=True), axes=1)
         self.u.assign(u_)  # '=' produces an error in graph mode
         return w / sigma
 
@@ -162,7 +164,7 @@ def compile_generator(height, width, weather_features, noise_dim, filters):
 
     u_skip_layers = [block]
     for ll in range(1, len(filters) // 2):
-        block = down(filters[ll], "down_%s-down" % ll)(block)
+        block = down(filters[ll], f"down_{ll}-down")(block)
         # Collect U-Net skip connections
         u_skip_layers.append(block)
     height = block.shape[1]
@@ -179,13 +181,13 @@ def compile_generator(height, width, weather_features, noise_dim, filters):
     u_skip_layers.pop()
 
     for ll in range(len(filters) // 2, len(filters) - 1):
-        block = up(filters[ll], "up_%s-up" % (len(filters) - ll - 1))(block)
+        block = up(filters[ll], f"up_{(len(filters) - ll - 1)}-up")(block)
         if block.shape[slice(1, 2)] != u_skip_layers[-1].shape[slice(1, 2)]:
             block = layers.Cropping2D(cropping=((1, 0), (1, 0)), data_format=None)(
                 block
             )
         # Connect U-Net skip
-        block = layers.Concatenate(name="up_%s-concatenate" % (len(filters) - ll - 1))(
+        block = layers.Concatenate(name=f"up_{(len(filters) - ll - 1)}-concatenate")(
             [block, u_skip_layers.pop()]
         )
 
@@ -203,9 +205,9 @@ def compile_generator(height, width, weather_features, noise_dim, filters):
         return tf.keras.Model(
             inputs=[noise_input, image_input, weather_input], outputs=pollen
         )
-    elif weather_features > 0 and noise_dim <= 0:
+    elif noise_dim <= 0 < weather_features:
         return tf.keras.Model(inputs=[image_input, weather_input], outputs=pollen)
-    elif weather_features <= 0 and noise_dim > 0:
+    elif weather_features <= 0 < noise_dim:
         return tf.keras.Model(inputs=[noise_input, image_input], outputs=pollen)
     else:
         return tf.keras.Model(inputs=[image_input], outputs=pollen)
@@ -243,7 +245,7 @@ def write_png(image, path, pretty):
         plt.savefig(path)
         plt.close(fig)
     else:
-        image = tf.concat(image, axis=1) * 10
+        image = tf.concat(image, 1) * 10
         image = tf.cast(image, tf.uint8)
         png = tf.image.encode_png(image)
         tf.io.write_file(path, png)
@@ -255,13 +257,13 @@ bxe_loss = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
 # * https://www.tensorflow.org/tutorials/customization/custom_training_walkthrough
 # * Autodifferentiation vs. calculate training steps yourself
-# * L1-Loss (Median) absolute value difference statt RMSE (Mean) als Loss - pixelwise
+# * L1-Loss (Median) absolute value difference statt RMSE (Mean) also Loss - pixelwise
 # * Calculate difference between image_b and generated ones for regression
 # * Reduce output channels from 3 RGB to one pollen (+ height and width)
 # * Weather input was simply zero mean and unit variance
 
 
-def gan_step(
+def gan_step(  # pylint: disable=R0913
     generator,
     optimizer_gen,
     input_train,
@@ -291,7 +293,7 @@ def gan_step(
     return loss
 
 
-def train_model(
+def train_model(  # pylint: disable=R0912,R0913,R0914,R0915
     config, generator, data_train, data_valid, run_path, noise_dim, add_weather, shuffle
 ):
 
@@ -372,9 +374,7 @@ def train_model(
                 step.assign_add(1)
 
             print(
-                "Time taken for epoch {} is {} sec\n".format(
-                    epoch.numpy(), time.time() - start
-                ),
+                f"Time taken for epoch {epoch.numpy()} is {time.time() - start} sec\n",
                 flush=True,
             )
 
@@ -412,13 +412,160 @@ def train_model(
                         tf.math.abs(generated_valid - alder_valid)
                     ).numpy(),
                 )
-            session.report(
+            air.session.report(
                 {
                     "iterations": step,
                     "Loss_valid": loss_valid.mean(),
                     "Loss": loss_report.mean(),
                 }
             )
+
+            epoch.assign_add(1)
+            if shuffle:
+                data_train.on_epoch_end()
+                data_valid.on_epoch_end()
+
+            for i in range(math.floor(data_valid.x.shape[0] / data_valid.batch_size)):
+
+                hazel_valid = data_valid[i][0]
+                alder_valid = data_valid[i][1]
+
+                if noise_dim > 0:
+                    noise_valid = tf.random.normal([hazel_valid.shape[0], noise_dim])
+                    generated_valid = generator([noise_valid, hazel_valid])
+                else:
+                    generated_valid = generator([hazel_valid])
+                index = np.random.randint(hazel_valid.shape[0])
+                viz = (
+                    hazel_valid[index],
+                    alder_valid[index],
+                    generated_valid[index].numpy(),
+                )
+                write_png(
+                    viz,
+                    run_path
+                    + "/viz/valid/"
+                    + tune_trial
+                    + str(epoch.numpy())
+                    + "-"
+                    + str(step_valid)
+                    + ".png",
+                    pretty=True,
+                )
+                step_valid += 1
+                loss_valid = np.append(
+                    loss_valid,
+                    tf.math.reduce_mean(
+                        tf.math.abs(generated_valid - alder_valid)
+                    ).numpy(),
+                )
+            air.session.report(
+                {
+                    "iterations": step,
+                    "Loss_valid": loss_valid.mean(),
+                    "Loss": loss_report.mean(),
+                }
+            )
+            loss_valid = tf.math.reduce_sum(tf.math.abs(generated_valid - alder_valid))
+            air.session.report({"Loss_valid": loss_valid})
+
+            epoch.assign_add(1)
+            if shuffle:
+                data_train.on_epoch_end()
+                data_valid.on_epoch_end()
+
+            for i in range(math.floor(data_valid.x.shape[0] / data_valid.batch_size)):
+
+                hazel_valid = data_valid[i][0]
+                alder_valid = data_valid[i][1]
+
+                if noise_dim > 0:
+                    noise_valid = tf.random.normal([hazel_valid.shape[0], noise_dim])
+                    generated_valid = generator([noise_valid, hazel_valid])
+                else:
+                    generated_valid = generator([hazel_valid])
+                index = np.random.randint(hazel_valid.shape[0])
+                viz = (
+                    hazel_valid[index],
+                    alder_valid[index],
+                    generated_valid[index].numpy(),
+                )
+                write_png(
+                    viz,
+                    run_path
+                    + "/viz/valid/"
+                    + tune_trial
+                    + str(epoch.numpy())
+                    + "-"
+                    + str(step_valid)
+                    + ".png",
+                    pretty=True,
+                )
+                step_valid += 1
+                loss_valid = np.append(
+                    loss_valid,
+                    tf.math.reduce_mean(
+                        tf.math.abs(generated_valid - alder_valid)
+                    ).numpy(),
+                )
+            air.session.report(
+                {
+                    "iterations": step,
+                    "Loss_valid": loss_valid.mean(),
+                    "Loss": loss_report.mean(),
+                }
+            )
+            loss_valid = tf.math.reduce_sum(tf.math.abs(generated_valid - alder_valid))
+            air.session.report({"Loss_valid": loss_valid})
+
+            epoch.assign_add(1)
+            if shuffle:
+                data_train.on_epoch_end()
+                data_valid.on_epoch_end()
+
+            for i in range(math.floor(data_valid.x.shape[0] / data_valid.batch_size)):
+
+                hazel_valid = data_valid[i][0]
+                alder_valid = data_valid[i][1]
+
+                if noise_dim > 0:
+                    noise_valid = tf.random.normal([hazel_valid.shape[0], noise_dim])
+                    generated_valid = generator([noise_valid, hazel_valid])
+                else:
+                    generated_valid = generator([hazel_valid])
+                index = np.random.randint(hazel_valid.shape[0])
+                viz = (
+                    hazel_valid[index],
+                    alder_valid[index],
+                    generated_valid[index].numpy(),
+                )
+                write_png(
+                    viz,
+                    run_path
+                    + "/viz/valid/"
+                    + tune_trial
+                    + str(epoch.numpy())
+                    + "-"
+                    + str(step_valid)
+                    + ".png",
+                    pretty=True,
+                )
+                step_valid += 1
+                loss_valid = np.append(
+                    loss_valid,
+                    tf.math.reduce_mean(
+                        tf.math.abs(generated_valid - alder_valid)
+                    ).numpy(),
+                )
+            air.session.report(
+                {
+                    "iterations": step,
+                    "Loss_valid": loss_valid.mean(),
+                    "Loss": loss_report.mean(),
+                }
+            )
+            loss_valid = tf.math.reduce_sum(tf.math.abs(generated_valid - alder_valid))
+            air.session.report({"Loss_valid": loss_valid})
 
             epoch.assign_add(1)
             if shuffle:
@@ -476,9 +623,7 @@ def train_model(
                 step.assign_add(1)
 
             print(
-                "Time taken for epoch {} is {} sec\n".format(
-                    epoch.numpy(), time.time() - start
-                ),
+                f"Time taken for epoch {epoch.numpy()} is {time.time() - start} sec\n",
                 flush=True,
             )
 
@@ -519,7 +664,7 @@ def train_model(
                     ).numpy(),
                 )
                 step_valid += 1
-            session.report(
+            air.session.report(
                 {
                     "iterations": step,
                     "Loss_valid": loss_valid.mean(),
@@ -532,7 +677,9 @@ def train_model(
                 data_valid.on_epoch_end()
 
 
-def train_model_simple(data_train, data_valid, epochs, add_weather, conv=True):
+def train_model_simple(  # pylint: disable=R0914,R0915
+    data_train, data_valid, epochs, add_weather, conv=True
+):
 
     if add_weather:
         data_train.x = xr.concat([data_train.x, data_train.weather], dim="var")

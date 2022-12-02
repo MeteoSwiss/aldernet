@@ -1,0 +1,18 @@
+channels:
+- conda-forge
+- defaults
+dependencies:
+- python=3.10.6
+- git=2.34.1
+- pip
+- cfgrib>=0.9.9.1
+- eccodes=2.24.2
+- numpy
+- xarray
+- pytest
+- psy-view
+- psy-reg
+- cartopy
+- pip:
+  - git+https://github.com/C2SM/iconarray@v0.1.23
+- pre-commit

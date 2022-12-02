@@ -3,6 +3,8 @@
 To create realistic Images of Pollen Surface Concentration Maps.
 """
 
+# pylint: disable-all
+
 # Copyright (c) 2022 MeteoSwiss, contributors listed in AUTHORS
 # Distributed under the terms of the BSD 3-Clause License.
 # SPDX-License-Identifier: BSD-3-Clause
@@ -16,11 +18,11 @@ import keras
 import mlflow
 import numpy as np
 import tensorflow as tf
+from keras import layers
+from keras.constraints import Constraint
+from keras.tensorflow.linalg import matvec
+from keras.tensorflow.nn import l2_normalize
 from matplotlib import pyplot as plt
-from tensorflow.keras import layers
-from tensorflow.keras.constraints import Constraint
-from tensorflow.linalg import matvec
-from tensorflow.nn import l2_normalize
 
 experiment_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
@@ -320,7 +322,7 @@ bxe_loss = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
 # * https://www.tensorflow.org/tutorials/customization/custom_training_walkthrough
 # * Autodifferentiation vs. calculate training steps yourself
-# * L1-Loss (Median) absolute value difference statt RMSE (Mean) als Loss - pixelwise
+# * L1-Loss (Median) absolute value difference statt RMSE (Mean) also Loss - pixelwise
 # * Calculate difference between image_b and generated ones for regression
 # * Reduce output channels from 3 RGB to one pollen (+ height and width)
 # * Weather input was simply zero mean and unit variance
@@ -399,7 +401,7 @@ def train_gan(
                 step,
             )
 
-            weathers = tf.concat([weathers_a, weathers_b], axis=1)
+            weathers = tf.concat([weathers_a, weathers_b], 1)
 
             noise_1 = tf.random.normal([images_a.shape[0], noise_dim])
             generated_1 = generator([noise_1, images_a, weathers])
@@ -408,7 +410,7 @@ def train_gan(
             with summary_writer.as_default():
                 tf.summary.scalar("gen_l1", gen_l1, step=step)
 
-            viz = tf.concat([images_a[0], images_b[0], generated_1[0]], axis=1)
+            viz = tf.concat([images_a[0], images_b[0], generated_1[0]], 1)
 
             write_png(
                 viz,
@@ -422,10 +424,6 @@ def train_gan(
 
             step.assign_add(1)
 
-        print(
-            "Time taken for epoch {} is {} sec\n".format(
-                epoch.numpy(), time.time() - start, flush=True
-            )
-        )
+        print(f"Time taken for epoch {epoch.numpy()} is {time.time() - start} sec\n")
         epoch.assign_add(1)
         manager.save()

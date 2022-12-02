@@ -5,7 +5,7 @@ import math
 
 # Third-party
 import numpy as np
-import tensorflow as tf
+import tensorflow as tf  # type: ignore
 
 select_params = [
     "ALNU",

@@ -1,4 +1,6 @@
-"""Function scales and centers 4D numpy arrays (Dims: valid_time, lat, lon, weather_param)."""
+"""Function scales and centers 4D numpy arrays (time, lat, lon, weather)."""
+
+# pylint: disable-all
 
 # Third-party
 import numpy as np
@@ -27,7 +29,7 @@ data_reduced = data_reduced.chunk(dict(x=-1)).interpolate_na(
 images_a = data_reduced.CORY.values[:, :, :, np.newaxis]
 # Pollen output field for Alder
 images_b = data_reduced.ALNU.values[:, :, :, np.newaxis]
-# Selection of additional weather parameters on ground level (please select the ones you like)
+# Selection of additional weather parameters on ground level
 # Depending on the amount of weather fields this step takes several minutes to 1 hour.
 weather_params = [
     "ALNUfr",
@@ -37,7 +39,8 @@ weather_params = [
     "HPBL",
     "PLCOV",
     "T",
-    "TWATER" "U",
+    "TWATER",
+    "U",
     "V",
 ]
 weather = (

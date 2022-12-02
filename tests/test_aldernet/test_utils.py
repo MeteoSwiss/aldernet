@@ -3,7 +3,7 @@
 import logging
 
 # First-party
-from aldernet.utils import count_to_log_level
+from aldernet.utils import count_to_log_level  # type: ignore
 
 
 def test_count_to_log_level():

@@ -1,17 +1,16 @@
-Welcome to aldernet's documentation!
+Welcome to Aldernet's documentation!
 ===========================================================
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
-   readme
+   ../README
    installation
-   usage
-   modules
-   contributing
-   authors
-   history
+   ../USAGE
+   ../CONTRIBUTING
+   ../AUTHORS
+   ../HISTORY
 
 Indices and tables
 ==================

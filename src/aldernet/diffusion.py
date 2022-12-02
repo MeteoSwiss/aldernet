@@ -1,15 +1,17 @@
 """Training a Diffusion Model with PyTorch."""
 
+# pylint: disable=R0801
+
 # Standard library
 import socket
 
 # Third-party
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # type: ignore
 import numpy as np
 import torch
 import xarray as xr
-from denoising_diffusion_pytorch import GaussianDiffusion
-from denoising_diffusion_pytorch import Unet
+from denoising_diffusion_pytorch import GaussianDiffusion  # type: ignore
+from denoising_diffusion_pytorch import Unet  # type: ignore
 
 
 def show(img):
@@ -50,7 +52,7 @@ diffusion = GaussianDiffusion(
     model, image_size=64, timesteps=1000, loss_type="l1"
 ).cuda()
 
-training_images = torch.from_numpy(data_img).cuda()
+training_images = torch.from_numpy(data_img).cuda()  # pylint: disable=E1101
 loss = diffusion(training_images).cuda()
 loss.backward()
 

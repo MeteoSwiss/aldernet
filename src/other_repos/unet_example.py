@@ -1,5 +1,6 @@
 """Training of UNET to Test Image Segmentation on Pictures of Pets."""
 
+# pylint: disable-all
 
 # Standard library
 import os
@@ -11,10 +12,9 @@ import numpy as np
 import PIL
 from IPython.display import display
 from IPython.display import Image
-from PIL import ImageOps
+from keras import layers
+from keras.preprocessing.image import load_img
 from tensorflow import keras
-from tensorflow.keras import layers
-from tensorflow.keras.preprocessing.image import load_img
 
 # Title: Image segmentation with a U-Net-like architecture
 # Author: [fchollet](https://twitter.com/fchollet)

@@ -4,67 +4,65 @@
 Installation
 ============
 
+ There are two installation types, a productive (binary) installation and a development (source) installation which is editable.
 
-Stable release
---------------
-
-To install aldernet, run this command in your terminal:
-
-.. code-block:: console
-
-    $ pip install aldernet
-
-This is the preferred method to install aldernet, as it will always install the most recent stable release.
-
-If you don't have `pip`_ installed, this `Python installation guide`_ can guide
-you through the process.
-
-.. _pip: https://pip.pypa.io
-.. _Python installation guide: http://docs.python-guide.org/en/latest/starting/installation/
+Preparation
+-----------
+To install Aldernet you need a miniconda installation. You can either setup your miniconda installation manually or use the script `setup_miniconda.sh`, which will download and install the latest version of miniconda.
 
 
-From sources
-------------
-
-The sources for aldernet can be downloaded from the `Github repo`_.
-
-Option 1
-^^^^^^^^
-You can directly install it:
+Installation of dependencies
+----------------------------
+Dependencies are handled by the conda package manager. The goal of this step is to set up a conda environment according to the requirements of Aldernet. Note that the development installation has some additional dependencies as it includes linters and other development tools. The dependencies are handled in requirement files. Free installations are based on the `requirements/requirements.yml` and `requirements/dev-requirements.yml` files, where the first-level dependencies of the package are listed. Pinned installations are based on exported environments and stored in the files `requirements/environment.yml` and `requirements/dev-environment.yml`. In total, four possible installation options are possible pinned/unpinned x dev/prod. These options are covered in the script `setup_env.sh`. The optional flags `-d` and `-u` stand for dev and unpinned installation respectively. E.g. for an unpinned dev installation type:
 
 .. code-block:: console
 
-    $ pip install git+https://github.com/MeteoSwiss-APN/aldernet#egg=aldernet
+    $ bash setup_env.sh -d -u
 
-or in developer mode:
+You can control the environment name with the flag `-n` and the python version with `-v`. Execute :code:`./setup_env -h` for available options and defaults.
 
-.. code-block:: console
 
-    $ pip install -e git+https://github.com/MeteoSwiss-APN/aldernet#egg=aldernet
+Installation of Aldernet
+-----------------------------------------------
 
-For further details see the `pip documentation`_.
-
-Option 2
-^^^^^^^^
-You can either clone the public repository:
+Again, there are two options for installation, binary production installations and development (source) installations which are editable. Go to the root folder of aldernet. Then type
 
 .. code-block:: console
 
-    $ git clone git://github.com/sadamov/aldernet
+    $ conda activate aldernet
+    $ pip install --no-deps .
 
-Or download the `tarball`_:
-
-.. code-block:: console
-
-    $ curl  -OL https://github.com/sadamov/aldernet/tarball/master
-
-Once you have a copy of the source, you can install it with:
+For a production installation and
 
 .. code-block:: console
 
-    $ python setup.py install
+    $ conda activate aldernet
+    $ pip install --no-deps --editable .
+
+for a development (editable) installation.
 
 
-.. _`pip documentation`: https://pip.pypa.io/en/stable/reference/pip_install/#vcs-support
-.. _Github repo: https://github.com/MeteoSwiss-APN/aldernet
-.. _tarball: https://github.com/MeteoSwiss-APN/aldernet/tarball/master
+Maintenance of the environment (for developers)
+-----------------------------------------------
+
+If you need to add new first-level dependencies to your package, make sure to include them in `requirements/requirements.yml` or `requirements/dev-requirements.yml` in case they are used for development only. Note that pip requirements can be added to these files in the `pip:` section of the document. After a (free!) installation, this will change the full dependency tree and you need to export the environment(s). This is currently not handled automatically, so you need to export both (dev and prod) environments by hand by activating the environment and then running
+
+.. code-block:: console
+
+    $ conda env export aldernet requirements/environment.yml
+
+or
+
+.. code-block:: console
+
+    $ conda env export dev-aldernet requirements/dev-environment.yml
+
+Note that this requires you to distinguish the name of the dev environment.
+
+
+Interaction with Jenkins and Github actions
+-------------------------------------------
+
+Your package is always built on a Github actions server upon committing to the main branch. If your code goes into production,
+pinned, non-editable (production) installations must be tested with Jenkins on CSCS machines. Templates may be found in the jenkins/
+folder. Contact DevOps to help you set up your pipeline.

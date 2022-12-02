@@ -1,5 +1,7 @@
 """Import and preprocess the data."""
 
+# pylint: disable=R0801
+
 # Third-party
 import numpy as np
 import xarray as xr
@@ -50,7 +52,7 @@ hazel_valid = data_valid_norm.CORY.values[:, :, :, np.newaxis]
 alder_train = data_train_norm.ALNU.values[:, :, :, np.newaxis]
 alder_valid = data_valid_norm.ALNU.values[:, :, :, np.newaxis]
 
-# Selection of additional weather parameters on ground level (please select the ones you like)
+# Selection of additional weather parameters on ground level
 # Depending on the amount of weather fields this step takes several minutes to 1 hour.
 weather_params = [
     "CORYctsum",

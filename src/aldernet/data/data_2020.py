@@ -1,10 +1,12 @@
 """Create a Zarr Archive based on Cosmo 2020 Data."""
 
+# pylint: disable=R0801
+
 # Standard library
 import glob
 
 # Third-party
-import cfgrib
+import cfgrib  # type: ignore
 
 # Remove existing zarr archive
 # os.system("rm -r /scratch/sadamov/aldernet/data2020")
@@ -126,7 +128,7 @@ if initialize:
 
     keys = list(ds_surface.keys())
     keys.sort()
-    ds_surface[keys]
+    ds_surface = ds_surface[keys]
 
     ds_surface.to_zarr("/scratch/sadamov/aldernet/data2020")
 
@@ -193,7 +195,7 @@ for file_weather, file_cory, file_alnu in zip(
 
     keys = list(ds_surface.keys())
     keys.sort()
-    ds_surface[keys]
+    ds_surface = ds_surface[keys]
 
     ds_surface.to_zarr(
         "/scratch/sadamov/aldernet/data2020", mode="a", append_dim="valid_time"
