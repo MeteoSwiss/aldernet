@@ -31,7 +31,7 @@ select_params = [
 
 # Data Import
 # Import zarr archive for the years 2020-2022
-data = xr.open_zarr("/scratch/sadamov/aldernet/data.zarr")
+data = xr.open_zarr("/scratch/sadamov/pyprojects_data/aldernet/data.zarr")
 
 data_select = data[select_params]
 

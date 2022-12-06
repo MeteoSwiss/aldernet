@@ -31,7 +31,7 @@ from aldernet.training_utils import train_model
 from aldernet.training_utils import train_model_simple
 
 # ---> DEFINE SETTINGS HERE <--- #
-tune_with_ray = False
+tune_with_ray = True
 zoom = ""
 noise_dim = 0
 epochs = 3
@@ -94,7 +94,7 @@ if tune_with_ray:
         }
     )
 
-    tune.run(
+    analysis = tune.run(
         tune.with_parameters(
             train_model,
             generator=generator,
@@ -130,6 +130,7 @@ if tune_with_ray:
         },
         local_dir=run_path,
         keep_checkpoints_num=1,
+        checkpoint_freq=1,
         checkpoint_score_attr="Loss",
         checkpoint_at_end=True,
         callbacks=[
@@ -143,6 +144,7 @@ if tune_with_ray:
     # rsync commands to merge the mlruns directories
     rsync_cmd = "rsync" + " -avzh " + run_path + "/mlruns" + " " + str(here())
     subprocess.run(rsync_cmd, shell=True, check=True)
+    best_checkpoint_dir = analysis.best_checkpoint
 else:
     batcher_train = Batcher(
         data_train, batch_size=32, add_weather=add_weather, shuffle=shuffle
