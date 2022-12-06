@@ -4,8 +4,6 @@
 # Distributed under the terms of the BSD 3-Clause License.
 # SPDX-License-Identifier: BSD-3-Clause
 
-# Train the generator network
-
 # Standard library
 import datetime
 import socket
@@ -33,12 +31,12 @@ from aldernet.training_utils import train_model
 from aldernet.training_utils import train_model_simple
 
 # ---> DEFINE SETTINGS HERE <--- #
-tune_with_ray = True
+tune_with_ray = False
 zoom = ""
 noise_dim = 0
 epochs = 3
-shuffle = False
-add_weather = False
+shuffle = True
+add_weather = True
 conv = False
 # -------------------------------#
 
