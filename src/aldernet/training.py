@@ -32,11 +32,11 @@ from aldernet.training_utils import train_model_simple
 
 # ---> DEFINE SETTINGS HERE <--- #
 tune_with_ray = True
-zoom = ""
+zoom = "data_zoom"
 noise_dim = 0
 epochs = 3
 shuffle = True
-add_weather = True
+add_weather = False
 conv = False
 # -------------------------------#
 
@@ -58,12 +58,12 @@ if "tsa" in hostname:
     )
 elif "nid" in hostname:
     data_train = xr.open_zarr(
-        "/scratch/e1000/meteoswiss/scratch/sadamov/aldernet/"
+        "/scratch/e1000/meteoswiss/scratch/sadamov/pyprojects_data/aldernet/"
         + zoom
         + "/data_train.zarr"
     )
     data_valid = xr.open_zarr(
-        "/scratch/e1000/meteoswiss/scratch/sadamov/aldernet/"
+        "/scratch/e1000/meteoswiss/scratch/sadamov/pyprojects_data/aldernet/"
         + zoom
         + "/data_valid.zarr"
     )
@@ -94,7 +94,7 @@ if tune_with_ray:
         }
     )
 
-    analysis = tune.run(
+    tuner = tune.run(
         tune.with_parameters(
             train_model,
             generator=generator,
@@ -144,7 +144,7 @@ if tune_with_ray:
     # rsync commands to merge the mlruns directories
     rsync_cmd = "rsync" + " -avzh " + run_path + "/mlruns" + " " + str(here())
     subprocess.run(rsync_cmd, shell=True, check=True)
-    best_checkpoint_dir = analysis.best_checkpoint
+    best_checkpoint_dir = tuner.best_checkpoint
 else:
     batcher_train = Batcher(
         data_train, batch_size=32, add_weather=add_weather, shuffle=shuffle

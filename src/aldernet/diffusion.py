@@ -8,7 +8,7 @@ import socket
 # Third-party
 import matplotlib.pyplot as plt  # type: ignore
 import numpy as np
-import torch
+import torch  # type: ignore
 import xarray as xr
 from denoising_diffusion_pytorch import GaussianDiffusion  # type: ignore
 from denoising_diffusion_pytorch import Unet  # type: ignore
