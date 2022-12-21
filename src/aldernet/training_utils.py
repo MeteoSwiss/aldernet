@@ -8,6 +8,8 @@ To create realistic Images of Pollen Surface Concentration Maps.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # pylint: disable=no-member
+# pyright: reportUnboundVariable=false,reportOptionalMemberAccess=false
+# pyright: reportGeneralTypeIssues=false
 
 # Standard library
 import math
@@ -24,8 +26,9 @@ import xarray as xr
 from keras import layers
 from keras.constraints import Constraint  # type: ignore
 from pyprojroot import here  # type: ignore
-from ray import air
 from ray import tune
+from ray.air import Checkpoint
+from ray.air import session
 
 # First-party
 from aldernet.data.data_utils import Batcher
@@ -35,7 +38,7 @@ def define_filters(zoom):
     filters = [64, 128, 256, 512, 1024, 1024, 512, 768, 640, 448, 288, 352]
 
     if zoom == "":
-        filters[:] = [x / 16 for x in filters]
+        filters[:] = [int(x / 16) for x in filters]
 
     return filters
 
@@ -306,7 +309,7 @@ def train_model(  # pylint: disable=R0912,R0913,R0914,R0915
 
     mlflow.set_tracking_uri(run_path + "/mlruns")
     mlflow.set_experiment("Aldernet")
-    tune_trial = tune.get_trial_name() + "/"
+    tune_trial = tune.get_trial_name() + "/"  # type:ignore
     Path(run_path + "/viz/" + tune_trial).mkdir(parents=True, exist_ok=True)
     Path(run_path + "/viz/valid/" + tune_trial).mkdir(parents=True, exist_ok=True)
 
@@ -412,161 +415,23 @@ def train_model(  # pylint: disable=R0912,R0913,R0914,R0915
                         tf.math.abs(generated_valid - alder_valid)
                     ).numpy(),
                 )
-            air.session.report(
+
+                checkpoint = Checkpoint.from_dict(
+                    dict(
+                        epoch=epoch,
+                        model_weights=generator.get_weights(),
+                        model=generator,
+                    )
+                )
+
+            session.report(
                 {
                     "iterations": step,
                     "Loss_valid": loss_valid.mean(),
                     "Loss": loss_report.mean(),
-                }
+                },
+                checkpoint=checkpoint,
             )
-
-            epoch.assign_add(1)
-            if shuffle:
-                data_train.on_epoch_end()
-                data_valid.on_epoch_end()
-
-            for i in range(math.floor(data_valid.x.shape[0] / data_valid.batch_size)):
-
-                hazel_valid = data_valid[i][0]
-                alder_valid = data_valid[i][1]
-
-                if noise_dim > 0:
-                    noise_valid = tf.random.normal([hazel_valid.shape[0], noise_dim])
-                    generated_valid = generator([noise_valid, hazel_valid])
-                else:
-                    generated_valid = generator([hazel_valid])
-                index = np.random.randint(hazel_valid.shape[0])
-                viz = (
-                    hazel_valid[index],
-                    alder_valid[index],
-                    generated_valid[index].numpy(),
-                )
-                write_png(
-                    viz,
-                    run_path
-                    + "/viz/valid/"
-                    + tune_trial
-                    + str(epoch.numpy())
-                    + "-"
-                    + str(step_valid)
-                    + ".png",
-                    pretty=True,
-                )
-                step_valid += 1
-                loss_valid = np.append(
-                    loss_valid,
-                    tf.math.reduce_mean(
-                        tf.math.abs(generated_valid - alder_valid)
-                    ).numpy(),
-                )
-            air.session.report(
-                {
-                    "iterations": step,
-                    "Loss_valid": loss_valid.mean(),
-                    "Loss": loss_report.mean(),
-                }
-            )
-            loss_valid = tf.math.reduce_sum(tf.math.abs(generated_valid - alder_valid))
-            air.session.report({"Loss_valid": loss_valid})
-
-            epoch.assign_add(1)
-            if shuffle:
-                data_train.on_epoch_end()
-                data_valid.on_epoch_end()
-
-            for i in range(math.floor(data_valid.x.shape[0] / data_valid.batch_size)):
-
-                hazel_valid = data_valid[i][0]
-                alder_valid = data_valid[i][1]
-
-                if noise_dim > 0:
-                    noise_valid = tf.random.normal([hazel_valid.shape[0], noise_dim])
-                    generated_valid = generator([noise_valid, hazel_valid])
-                else:
-                    generated_valid = generator([hazel_valid])
-                index = np.random.randint(hazel_valid.shape[0])
-                viz = (
-                    hazel_valid[index],
-                    alder_valid[index],
-                    generated_valid[index].numpy(),
-                )
-                write_png(
-                    viz,
-                    run_path
-                    + "/viz/valid/"
-                    + tune_trial
-                    + str(epoch.numpy())
-                    + "-"
-                    + str(step_valid)
-                    + ".png",
-                    pretty=True,
-                )
-                step_valid += 1
-                loss_valid = np.append(
-                    loss_valid,
-                    tf.math.reduce_mean(
-                        tf.math.abs(generated_valid - alder_valid)
-                    ).numpy(),
-                )
-            air.session.report(
-                {
-                    "iterations": step,
-                    "Loss_valid": loss_valid.mean(),
-                    "Loss": loss_report.mean(),
-                }
-            )
-            loss_valid = tf.math.reduce_sum(tf.math.abs(generated_valid - alder_valid))
-            air.session.report({"Loss_valid": loss_valid})
-
-            epoch.assign_add(1)
-            if shuffle:
-                data_train.on_epoch_end()
-                data_valid.on_epoch_end()
-
-            for i in range(math.floor(data_valid.x.shape[0] / data_valid.batch_size)):
-
-                hazel_valid = data_valid[i][0]
-                alder_valid = data_valid[i][1]
-
-                if noise_dim > 0:
-                    noise_valid = tf.random.normal([hazel_valid.shape[0], noise_dim])
-                    generated_valid = generator([noise_valid, hazel_valid])
-                else:
-                    generated_valid = generator([hazel_valid])
-                index = np.random.randint(hazel_valid.shape[0])
-                viz = (
-                    hazel_valid[index],
-                    alder_valid[index],
-                    generated_valid[index].numpy(),
-                )
-                write_png(
-                    viz,
-                    run_path
-                    + "/viz/valid/"
-                    + tune_trial
-                    + str(epoch.numpy())
-                    + "-"
-                    + str(step_valid)
-                    + ".png",
-                    pretty=True,
-                )
-                step_valid += 1
-                loss_valid = np.append(
-                    loss_valid,
-                    tf.math.reduce_mean(
-                        tf.math.abs(generated_valid - alder_valid)
-                    ).numpy(),
-                )
-            air.session.report(
-                {
-                    "iterations": step,
-                    "Loss_valid": loss_valid.mean(),
-                    "Loss": loss_report.mean(),
-                }
-            )
-            loss_valid = tf.math.reduce_sum(tf.math.abs(generated_valid - alder_valid))
-            air.session.report({"Loss_valid": loss_valid})
-
             epoch.assign_add(1)
             if shuffle:
                 data_train.on_epoch_end()
@@ -657,19 +522,23 @@ def train_model(  # pylint: disable=R0912,R0913,R0914,R0915
                     + ".png",
                     pretty=True,
                 )
+                step_valid += 1
                 loss_valid = np.append(
                     loss_valid,
                     tf.math.reduce_mean(
                         tf.math.abs(generated_valid - alder_valid)
                     ).numpy(),
                 )
-                step_valid += 1
-            air.session.report(
+
+                checkpoint = Checkpoint.from_dict(dict(epoch=epoch, model=generator))
+
+            session.report(
                 {
                     "iterations": step,
                     "Loss_valid": loss_valid.mean(),
                     "Loss": loss_report.mean(),
-                }
+                },
+                checkpoint=checkpoint,
             )
             epoch.assign_add(1)
             if shuffle:
