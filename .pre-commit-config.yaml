@@ -65,6 +65,10 @@ repos:
         entry: bash run-mypy.sh
         language: system
         types: [python]
+        exclude: |
+            (?x)^(
+                src/other_repos|
+            )$
         require_serial: true
         verbose: true
     -   id: pylint
@@ -72,5 +76,9 @@ repos:
         entry: pylint
         language: system
         types: [python]
+        exclude: |
+            (?x)^(
+                src/other_repos|
+            )$
         require_serial: true
         files: ^(.*\.py|(src|tests|docs)/(.*/)*.*\.py)$
