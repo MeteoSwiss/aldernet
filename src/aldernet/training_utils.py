@@ -35,17 +35,6 @@ from tensorflow import linalg
 from aldernet.data.data_utils import Batcher
 
 
-def get_field_at(ds, field, lon, lat, eps=1e-2):
-    return (
-        ds[field]
-        .where(
-            (np.abs(ds.longitude - lon) < eps) & (np.abs(ds.latitude - lat) < eps),
-            drop=True,
-        )
-        .values[0]
-    )
-
-
 def define_filters(zoom):
     filters = [64, 128, 256, 512, 1024, 1024, 512, 768, 640, 448, 288, 352]
 
@@ -433,7 +422,6 @@ def train_model(  # pylint: disable=R0912,R0913,R0914,R0915
                 checkpoint = Checkpoint.from_dict(
                     dict(
                         epoch=epoch,
-                        model_weights=generator.get_weights(),
                         model=generator,
                     )
                 )

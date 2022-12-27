@@ -14,6 +14,7 @@ from pathlib import Path
 # Third-party
 import mlflow  # type: ignore
 import numpy as np
+import pandas as pd  # type: ignore
 import xarray as xr
 from keras.utils import plot_model  # type: ignore
 from pyprojroot import here  # type: ignore
@@ -29,17 +30,16 @@ from tensorflow import random  # type: ignore
 from aldernet.data.data_utils import Batcher
 from aldernet.training_utils import compile_generator
 from aldernet.training_utils import define_filters
-from aldernet.training_utils import get_field_at
 from aldernet.training_utils import tf_setup
 from aldernet.training_utils import train_model
 from aldernet.training_utils import train_model_simple
 
 # ---> DEFINE SETTINGS HERE <--- #
-retrain_model = True
+retrain_model = False
 tune_with_ray = True
 zoom = ""
 noise_dim = 0
-epochs = 1
+epochs = 2
 shuffle = True
 add_weather = False
 conv = False
@@ -181,72 +181,70 @@ if retrain_model:
         best_model = simple_model
 else:
     best_model = Checkpoint.from_directory(
-        "/users/sadamov/pyprojects/aldernet/output/"
-        "20221220_132707/train_model_2022-12-20_13-27-23/"
-        "train_model_a7ffb_00000_0_batch_size=10,beta_1=0.8500,beta_2=0.9700,"
-        "learning_rate=0.0001_2022-12-20_13-27-25/checkpoint_000002"
+        "/users/sadamov/pyprojects/aldernet/output/20221223_072834/"
+        "train_model_2022-12-23_07-28-51/train_model_10b7d_00000_0_batch_size=10,"
+        "beta_1=0.8500,beta_2=0.9700,learning_rate=0.0001_2022-12-23_07-29-03/"
+        "checkpoint_000001"
     ).to_dict()["model"]
 
 predictions = best_model.predict(
-    Batcher(data_season, batch_size=32, add_weather=add_weather, shuffle=shuffle)
+    Batcher(data_season, batch_size=32, add_weather=add_weather, shuffle=False)
 )
 
-data_season["ALNU"] = np.squeeze(predictions)
+with open(str(here()) + "/data/scaling.txt", "r", encoding="utf-8") as f:
+    lines = [line.rstrip() for line in f]
+    center = float(lines[0].split(": ")[1])
+    scale = float(lines[1].split(": ")[1])
+
+data_season["ALNU"] = (data_season.dims, np.squeeze(predictions))
+data_alnu_output = np.maximum(0, 10 ** (data_season["ALNU"] * scale + center) - 1)
+data_alnu_output.to_netcdf(str(here()) + "/data/alnu_ml.nc")  # type: ignore
 
 # Retrieve the predicted values at all stations
-stations: dict[str, list[float] | list[str]] = {
-    "lon": [
-        7.599,
-        7.422,
-        9.470,
-        9.854,
-        6.142,
-        6.840,
-        6.641,
-        8.787,
-        8.949,
-        8.282,
-        9.243,
-        6.949,
-        7.872,
-        8.568,
-    ],
-    "lat": [
-        47.565,
-        46.941,
-        47.179,
-        46.820,
-        46.194,
-        47.117,
-        46.530,
-        46.173,
-        46.015,
-        47.067,
-        47.628,
-        47.000,
-        46.300,
-        47.371,
-    ],
-    "abbr": [
-        "PBS",
-        "PBE",
-        "PBU",
-        "PDS",
-        "PGE",
-        "PCF",
-        "PLS",
-        "PLO",
-        "PLU",
-        "PLZ",
-        "PMU",
-        "PNE",
-        "PVI",
-        "PZH",
-    ],
+stations_coords = {
+    "grid_i": [525, 511, 651, 677, 420, 472, 456, 603, 614, 570, 636, 479, 540, 590],
+    "grid_j": [506, 444, 465, 429, 373, 463, 405, 365, 349, 455, 510, 451, 379, 485],
 }
 
-alnu_stations: list = []
-for i in range(len(stations["lon"])):
-    alnu_stations.append(
-        get_field_at(data_season, "ALNU", stations["lon"][i], stations["lat"][i])
-    )
+# i = lon = x
+# j = lat = y
+
+stations = [
+    "PBS",
+    "PBE",
+    "PBU",
+    "PDS",
+    "PGE",
+    "PCF",
+    "PLS",
+    "PLO",
+    "PLU",
+    "PLZ",
+    "PMU",
+    "PNE",
+    "PVI",
+    "PZH",
+]
+
+station_values = data_season["ALNU"].values[
+    :, stations_coords["grid_j"], stations_coords["grid_i"]
+]
+
+station_values = np.maximum(0, 10 ** (station_values * scale + center) - 1)
+
+data_pd = pd.concat(
+    [
+        pd.DataFrame({"datetime": data_season.valid_time.values}),
+        pd.DataFrame(station_values),
+    ],
+    axis=1,
+)
+
+data_pd.columns = ["datetime"] + stations  # type: ignore
+
+data_pd.to_csv(str(here()) + "/data/22_alnu_ml.atab", sep=",", index=False)
+
+with subprocess.Popen(
+    ["Rscript", "--vanilla", str(here()) + "/notebooks/rmd2html.R"], shell=False
+):
+    print("Creating html verification report.")

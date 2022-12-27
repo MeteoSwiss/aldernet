@@ -5,6 +5,7 @@
 # Third-party
 import numpy as np
 import xarray as xr
+from pyprojroot import here  # type: ignore
 
 select_params = [
     "ALNU",
@@ -65,6 +66,15 @@ data_valid = data_high.sel(valid_time=slice("2022-01-01", "2022-12-31"))
 
 center = data_train.mean()
 scale = data_train.std()
+
+with open(str(here()) + "/data/scaling.txt", "w", encoding="utf-8") as f:
+    f.write(
+        "center: "
+        + str(center["ALNU"].values)
+        + "\n"
+        + "scale: "
+        + str(scale["ALNU"].values)
+    )
 
 data_train_norm = (data_train - center) / scale
 data_valid_norm = (data_valid - center) / scale
