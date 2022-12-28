@@ -50,7 +50,7 @@ tf_setup()
 random.set_seed(1)
 
 run_path = str(here()) + "/output/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-if tune_with_ray:
+if tune_with_ray and retrain_model:
     Path(run_path + "/viz/valid").mkdir(parents=True, exist_ok=True)
 
 data_train = xr.DataArray()
@@ -188,7 +188,12 @@ else:
     ).to_dict()["model"]
 
 predictions = best_model.predict(
-    Batcher(data_season, batch_size=32, add_weather=add_weather, shuffle=False)
+    Batcher(
+        data_season.sortby("valid_time"),
+        batch_size=32,
+        add_weather=add_weather,
+        shuffle=False,
+    )
 )
 
 with open(str(here()) + "/data/scaling.txt", "r", encoding="utf-8") as f:
