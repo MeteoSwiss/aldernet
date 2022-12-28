@@ -10,11 +10,11 @@ output:
   word_document: default
 ---
 
-```{r }
+```{r include=FALSE}
 species_sel <- "Alnus"
 ```
 
-In this notebook we want to evaluate the Alnus pollen forecast with a Deep Learning model.
+In this notebook we evaluate the Alnus pollen forecast with a Deep Learning model.
 The notebook is an adjusted version of the one used for this paper (XXX Todo), and might still
 contain some legacy code and comments as a consequence.
 The ML model is compared to three other timeseries during the same period:
@@ -31,6 +31,7 @@ Pollen surface level concentrations (i.e. level k=80 in Cosmo) are evaluated.
 ```{r include=FALSE}
 library(readr)
 library(dplyr)
+library(tibble)
 library(tidyr)
 library(stringr)
 library(magrittr)
@@ -68,7 +69,7 @@ load(paste0(here(), "/data/species.RData"))
 load(paste0(here(), "/data/stations.RData"))
 ```
 
-```{r }
+```{r include=FALSE}
 cols <- c("station", "type", "value", "datetime")
 stn_start <- "PLO"
 stn_end <- "PCF"
@@ -123,7 +124,7 @@ data_dwh <- read_table(paste(datapath), skip = 17) %>%
   select(taxon, station, type, value, datetime)
 ```
 
-```{r }
+```{r include=FALSE}
 
 datapath <- paste0(here(), "/data/22_alnu_cosmo.atab")
 data_cosmo_alnu <- read_table(paste(datapath), col_names = TRUE, skip = 18) %>%
@@ -174,7 +175,7 @@ data_cosmo_alnu <- read_table(paste(datapath), col_names = TRUE, skip = 18) %>%
 ```
 
 
-```{r }
+```{r include=FALSE}
 
 datapath <- paste0(here(), "/data/22_cory_cosmo.atab")
 data_cosmo_cory <- read_table(paste(datapath), col_names = TRUE, skip = 18) %>%
@@ -225,7 +226,7 @@ data_cosmo_cory <- read_table(paste(datapath), col_names = TRUE, skip = 18) %>%
   select(taxon, station, type, value, datetime)
 ```
 
-```{r }
+```{r include=FALSE}
 
 datapath <- paste0(here(), "/data/22_alnu_ml.atab")
 data_ml <- read_csv(paste(datapath), col_names = TRUE) %>%
@@ -263,7 +264,8 @@ data_ml <- read_csv(paste(datapath), col_names = TRUE) %>%
       break_above = 2
     )) %>%
   bind_rows() %>%
-  select(taxon, station, type, value, datetime)
+  select(taxon, station, type, value, datetime) %>%
+  mutate(value = 13 * value)
 ```
 
 ## The Data
@@ -400,7 +402,7 @@ The first assumption is most crucial (but also most difficult to check). If the 
 violated, statistical inference can be very inaccurate. In the ANOVA setting, the last assumption is typically
 not as important compared to a regression setting, as we are typically fitting “large” models.
 
-```{r}
+```{r include=FALSE}
 op <- options(contrasts = c("contr.sum", "contr.poly"))
 fit_anova <- aov(as.formula(paste("value ~ type")), data = data_above10)
 fit_anova_log <- aov(as.formula(paste("value ~ type")), data = data_log10)
@@ -415,7 +417,7 @@ is correct. By default, a standard normal distribution is the theoretical “ref
 They are definitely not and we have to do some adjustments. So for the following plot we logarithmic the data to deal with the right-skewedness.
 The best results were achieved by first logarithmic the data and then taking the square root.
 
-```{r }
+```{r echo=FALSE}
 gg_res1 <- tibble(residuals = residuals(fit_anova_log, type = "pearson")) %>%
   ggplot(aes(sample = residuals)) +
   stat_qq(col = "#222225", alpha = 0.1) +
@@ -429,13 +431,15 @@ gg_res2 <- tibble(residuals = residuals(fit_anova, type = "pearson")) %>%
 ggarrange(gg_res1, gg_res2, nrow = 1) %>%
   annotate_figure(top = "QQ-Plot for the ANOVA Residuals With (left) and Without Logarithmizing")
 ```
+
 ### Do the errors have mean zero? & Is the error variance constant?
+
 The Tukey-Anscombe plot plots the residuals vs. the fitted values.
 It allows us to check whether the residuals have constant variance and whether the residuals have mean zero
 (i.e. they don’t show any deterministic pattern).
 We don't plot the smoothing line as loess (and other) algorithms have issues when the same value is repeated a large number of times (jitter did not really help).
 
-```{r}
+```{r echo=FALSE}
 gg_tukey1 <- tibble(
   resid = residuals(fit_anova_log, type = "pearson"),
   fitted = fit_anova_log$fitted.values
@@ -466,7 +470,7 @@ residuals against time. For positively dependent residuals we would see time per
 have the same sign, while for negatively dependent residuals, the residuals would “jump” too often from
 positive to negative compared to independent residuals.
 
-```{r}
+```{r echo=FALSE}
 resid <- residuals(fit_anova_log, type = "pearson")
 resid_df <- tibble(resid = resid, id = as.numeric(names(resid)))
 
@@ -508,7 +512,7 @@ It is therefore suggested to continue the analysis with robust and simple metric
 General overview of the daily concentration values as represented in the three timeseries.
 Each plot shows one species in one year. The separate lines represent individual measurement stations.
 
-```{r }
+```{r echo=FALSE}
 startdate <- ymd_hms("2022-01-01 00:00:00")
 enddate <- ymd_hms("2022-03-31 00:00:00")
 
@@ -523,6 +527,27 @@ enddate <- ymd_hms("2022-03-31 00:00:00")
   scale_color_manual("", values = col_hex) +
   scale_x_date(date_labels = "%d. %b") +
   xlab("") +
+  ylab(paste0("Daily Mean Log. Concentrations [Pollen / m³]")) +
+  ggtitle(paste0("Time Series of Daily ", "*", species_sel, "*", " Pollen Concentrations")) +
+  theme(plot.title = element_markdown()))
+```
+
+In this chunk the reader can verify on a per station basis:
+
+```{r echo=FALSE}
+startdate <- ymd_hms("2022-01-01 00:00:00")
+enddate <- ymd_hms("2022-03-31 00:00:00")
+
+(gg_timeseries_stn <- data_combined %>%
+  ggplot() +
+  geom_line(aes(
+    x = as.Date(datetime), y = value,
+    col = type,
+  ), alpha = 0.7, linewidth = 1) +
+  scale_color_manual("", values = col_hex) +
+  scale_x_date(date_labels = "%d. %b") +
+  xlab("") +
+  facet_wrap(~station) +
   ylab(paste0("Daily Mean Log. Concentrations [Pollen / m³]")) +
   ggtitle(paste0("Time Series of Daily ", "*", species_sel, "*", " Pollen Concentrations")) +
   theme(plot.title = element_markdown()))
@@ -564,8 +589,8 @@ sd_hirst <- data_above10 %>%
     data = sd_hirst,
     aes(
       label = paste("Standard Deviation:\n", round(sd), "Pollen / m³"),
-      x = 30,
-      y = 3,
+      x = 50,
+      y = 2.5,
       group = type
     ),
     size = 3
@@ -678,21 +703,19 @@ gg_corr3 <- data_corr %>%
   ylab("log10(ml)")
 ```
 
-```{r echo=FALSE, fig.height = 8, fig.width = 13, fig.dpi=300, out.width="100%"}
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = 8, fig.width = 13, fig.dpi=300, out.width="100%"}
 (gg_corr <- ggarrange(gg_corr1, gg_corr2, gg_corr3, ncol = 3) %>%
   annotate_figure(
-    top = arrangeGrob(
-      text_grob("Pairwise Correlation Between Model and Measurements for ",
-        vjust = 1.2, hjust = 0.15, size = 14
-      ),
+    top = text_grob("Pairwise Correlation Between Model and Measurements for ",
+      vjust = 1.2, hjust = 0.15, size = 14
+    ),
     bottom = text_grob("Pairwise correlation between Models; blue line shows the Loess smoother;
       the red line shows a theoretical perfect correlation of 1. In the text box one can see the 95%
       confidence intervals of the R-values (adjusted for multiple comparison)
       as obtained by Pearson and two robust methods.",
       face = "italic", size = 10
     )
-  )
-))
+  ))
 ```
 
 ## Altman Bland Plots
@@ -717,11 +740,11 @@ gg_ab1 <- data_altman %>%
   ) +
   geom_abline(
     slope = 0, col = "#cc2d2d",
-    intercept = sd_diff[1] * 1.96, alpha = 0.8, linewidth = 3
+    intercept = sd_diff[1] * 1.96, alpha = 0.8, linetype = 3, linewidth = 1
   ) +
   geom_abline(
     slope = 0, col = "#cc2d2d",
-    intercept = sd_diff[1] * (-1.96), alpha = 0.8, linewidth = 3
+    intercept = sd_diff[1] * (-1.96), alpha = 0.8, linetype = 3, linewidth = 1
   ) +
   geom_smooth(alpha = 0.3, col = "#3081b8", fill = "#74cbee") +
   labs(y = "Difference(Baseline - Measurement)", x = "Mean(Baseline, Measurement)")
@@ -771,7 +794,7 @@ gg_ab3 <- data_altman %>%
 ```
 
 
-```{r echo=FALSE, fig.height = 8, fig.width = 13, fig.dpi=300, out.width="100%"}
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = 8, fig.width = 13, fig.dpi=300, out.width="100%"}
 (gg_ab <- ggarrange(gg_ab1, gg_ab2, gg_ab3, ncol = 3) %>%
   annotate_figure(
     top = gridExtra::arrangeGrob(
@@ -1047,7 +1070,7 @@ We can treat them as numerical values from 0:nothing - 4: very strong.
 my_header <- c(seciesl_sel = 3)
 names(my_header) <- species_sel
 
-data_impact_categories_above10 %>%
+mae_category <- data_impact_categories_above10 %>%
   select(
     taxon, station, datetime,
     categories_measurement, categories_cosmo_alnu, categories_cosmo_cory, categories_ml
@@ -1061,7 +1084,9 @@ data_impact_categories_above10 %>%
     MAE_cosmo_alnu = mean(abs(error_cosmo_alnu)),
     MAE_cosmo_cory = mean(abs(error_cosmo_cory)),
     MAE_ml = mean(abs(error_ml))
-  ) %>%
+  )
+
+mae_category %>%
   kable() %>%
   kable_styling("striped", full_width = FALSE) %>%
   add_header_above(my_header)
@@ -1186,4 +1211,89 @@ npar_contr$Analysis %>%
   kable(escape = FALSE) %>%
   kable_styling("striped", full_width = FALSE) %>%
   add_header_above(myheader)
+```
+
+FINAL DECISION:
+
+- Numeric
+  - Bias      max. +50%
+  - SD        max. +20%
+  - MAE       max. +20%
+  - RMSLE     max. +10%
+- Categorical
+  - Accuracy  max. -20%
+  - Kappa     max. -20%
+  - MAE       max. 20%
+
+
+```{r echo=FALSE}
+decision_num <- metrics_cosmo_alnu %>%
+  bind_rows(metrics_ml) %>%
+  select(Bias, SD, MAE, RMSLE, type)
+
+change_num <- abs(metrics_ml %>% select(-type)) / abs(metrics_cosmo_alnu %>% select(-type)) - 1
+change_num %<>%
+  add_column("type" = "change") %>%
+  select(Bias, SD, MAE, RMSLE, type)
+
+kappa_cosmo_alnu %>%
+  bind_rows(kappa_ml) %>%
+  select("value" = ".", everything()) %>%
+  pivot_wider(names_from = "type") %>%
+  mutate(change = abs(ml / cosmo_alnu) - 1) %>%
+  bind_rows(
+    mae_category %>%
+      mutate(metric = "MAE_cat", change = abs(MAE_ml / MAE_cosmo_alnu) - 1) %>%
+      select(metric, cosmo_alnu = MAE_cosmo_alnu, ml = MAE_ml, change)
+  ) %>%
+  pivot_longer(2:4, names_to = "type") %>%
+  pivot_wider(names_from = metric) %>%
+  inner_join(
+    decision_num %>%
+      bind_rows(change_num)
+  ) %>%
+  mutate(across(2:8, round, 2)) %>%
+  mutate(
+    Accuracy = case_when(
+      Accuracy > 0.2 & type == "change" ~ cell_spec(Accuracy,
+        background = "green", color = "white"
+      ),
+      Accuracy <= -0.2 & type == "change" ~ cell_spec(Accuracy,
+        background = "red", color = "white"
+      ),
+      TRUE ~ cell_spec(Accuracy)
+    ),
+    Kappa = case_when(
+      Kappa > -0.2 & type == "change" ~ cell_spec(Kappa, background = "green", color = "white"),
+      Kappa <= -0.2 & type == "change" ~ cell_spec(Kappa, background = "red", color = "white"),
+      TRUE ~ cell_spec(Kappa)
+    ),
+    MAE_cat = case_when(
+      MAE_cat < 0.2 & type == "change" ~ cell_spec(MAE_cat, background = "green", color = "white"),
+      MAE_cat >= 0.2 & type == "change" ~ cell_spec(MAE_cat, background = "red", color = "white"),
+      TRUE ~ cell_spec(MAE_cat)
+    ),
+    Bias = case_when(
+      Bias < 0.5 & type == "change" ~ cell_spec(Bias, background = "green", color = "white"),
+      Bias >= 0.5 & type == "change" ~ cell_spec(Bias, background = "red", color = "white"),
+      TRUE ~ cell_spec(Bias)
+    ),
+    SD = case_when(
+      SD < 0.2 & type == "change" ~ cell_spec(SD, background = "green", color = "white"),
+      SD >= 0.2 & type == "change" ~ cell_spec(SD, background = "red", color = "white"),
+      TRUE ~ cell_spec(SD)
+    ),
+    MAE = case_when(
+      MAE < 0.2 & type == "change" ~ cell_spec(MAE, background = "green", color = "white"),
+      MAE >= 0.2 & type == "change" ~ cell_spec(MAE, background = "red", color = "white"),
+      TRUE ~ cell_spec(MAE)
+    ),
+    RMSLE = case_when(
+      RMSLE < 0.1 & type == "change" ~ cell_spec(RMSLE, background = "green", color = "white"),
+      RMSLE >= 0.1 & type == "change" ~ cell_spec(RMSLE, background = "red", color = "white"),
+      TRUE ~ cell_spec(RMSLE)
+    )
+  ) %>%
+  kable(escape = FALSE) %>%
+  kable_styling("striped", full_width = FALSE)
 ```
