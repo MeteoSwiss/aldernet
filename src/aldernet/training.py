@@ -37,14 +37,15 @@ from aldernet.training_utils import train_model_simple
 # ---> DEFINE SETTINGS HERE <--- #
 input_species = "CORY"
 target_species = "ALNU"
-retrain_model = False
+retrain_model = True
 tune_with_ray = True
 zoom = ""
 noise_dim = 0
-epochs = 2
+epochs = 10
 shuffle = True
 add_weather = False
 conv = False
+members = 8
 # -------------------------------#
 
 if target_species == "ALNU":
@@ -138,20 +139,19 @@ if retrain_model:
             ),
             metric="Loss",
             mode="min",
-            num_samples=1,
+            num_samples=members,
             scheduler=ASHAScheduler(
                 time_attr="training_iteration",
                 max_t=epochs,
                 grace_period=1,
                 reduction_factor=3,
             ),
-            resources_per_trial={"cpu": 1},  # Choose appropriate Device
+            resources_per_trial={"gpu": 1},  # Choose appropriate Device
             config={
                 # define search space here
-                "learning_rate": tune.choice([0.0001]),
-                "beta_1": tune.choice([0.85]),
-                "beta_2": tune.choice([0.97]),
-                "batch_size": tune.choice([10]),
+                "learning_rate": tune.choice([0.0001, 0.0005, 0.001]),
+                "beta_1": tune.choice([0.85, 0.9, 0.95]),
+                "beta_2": tune.choice([0.97, 0.98, 0.99]),
                 "mlflow": {
                     "experiment_name": "Aldernet",
                     "tracking_uri": mlflow.get_tracking_uri(),
