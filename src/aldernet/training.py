@@ -35,6 +35,8 @@ from aldernet.training_utils import train_model
 from aldernet.training_utils import train_model_simple
 
 # ---> DEFINE SETTINGS HERE <--- #
+input_species = "CORY"
+target_species = "ALNU"
 retrain_model = False
 tune_with_ray = True
 zoom = ""
@@ -45,6 +47,10 @@ add_weather = False
 conv = False
 # -------------------------------#
 
+if target_species == "ALNU":
+    target_species_name = "Alnus"
+else:
+    target_species_name = ""
 
 tf_setup()
 random.set_seed(1)
@@ -91,7 +97,9 @@ if retrain_model:
         height = data_train.CORY.shape[1]
         width = data_train.CORY.shape[2]
         if add_weather:
-            weather_features = len(data_train.drop_vars(("ALNU", "CORY")).data_vars)
+            weather_features = len(
+                data_train.drop_vars((target_species, input_species)).data_vars
+            )
         else:
             weather_features = 0
         filters = define_filters(zoom)
@@ -201,9 +209,11 @@ with open(str(here()) + "/data/scaling.txt", "r", encoding="utf-8") as f:
     center = float(lines[0].split(": ")[1])
     scale = float(lines[1].split(": ")[1])
 
-data_season["ALNU"] = (data_season.dims, np.squeeze(predictions))
-data_alnu_output = np.maximum(0, 10 ** (data_season["ALNU"] * scale + center) - 1)
-data_alnu_output.to_netcdf(str(here()) + "/data/alnu_ml.nc")  # type: ignore
+data_season[target_species] = (data_season.dims, np.squeeze(predictions))
+data_alnu_output = np.maximum(
+    0, 10 ** (data_season[target_species] * scale + center) - 1
+)
+data_alnu_output.to_netcdf(str(here()) + "/data/pollen_ml.nc")  # type: ignore
 
 # Retrieve the predicted values at all stations
 stations_coords = {
@@ -231,23 +241,23 @@ stations = [
     "PZH",
 ]
 
-station_values = data_season["ALNU"].values[
+station_values = data_alnu_output.values[  # type:ignore
     :, stations_coords["grid_j"], stations_coords["grid_i"]
 ]
 
-station_values = np.maximum(0, 10 ** (station_values * scale + center) - 1)
-
 data_pd = pd.concat(
     [
-        pd.DataFrame({"datetime": data_season.valid_time.values}),
+        pd.DataFrame(
+            {"datetime": data_season.valid_time.values, "taxon": target_species_name}
+        ),
         pd.DataFrame(station_values),
     ],
     axis=1,
 )
 
-data_pd.columns = ["datetime"] + stations  # type: ignore
+data_pd.columns = ["datetime", "taxon"] + stations  # type: ignore
 
-data_pd.to_csv(str(here()) + "/data/22_alnu_ml.atab", sep=",", index=False)
+data_pd.to_csv(str(here()) + "/data/pollen_ml.atab", sep=",", index=False)
 
 with subprocess.Popen(
     ["Rscript", "--vanilla", str(here()) + "/notebooks/rmd2html.R"], shell=False
