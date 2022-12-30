@@ -1,2 +1,36 @@
-center: 0.54277545
-scale: 0.7436451
+center: <bound method Mapping.values of <xarray.Dataset>
+Dimensions:               ()
+Coordinates: (12/17)
+    atmMU                 float64 0.0
+    entireAtmosphere      float64 0.0
+    entireLake            float64 0.0
+    generalVertical       float64 81.0
+    generalVerticalLayer  float64 80.0
+    heightAboveGround     float64 10.0
+    ...                    ...
+    number                int64 0
+    step                  timedelta64[ns] 00:00:00
+    surface               float64 0.0
+    thermocline           float64 0.0
+    time                  datetime64[ns] 2022-04-01
+    atmML                 float64 0.0
+Data variables:
+    ALNU                  float32 dask.array<chunksize=(), meta=np.ndarray>>
+scale: <bound method Mapping.values of <xarray.Dataset>
+Dimensions:               ()
+Coordinates: (12/17)
+    atmMU                 float64 0.0
+    entireAtmosphere      float64 0.0
+    entireLake            float64 0.0
+    generalVertical       float64 81.0
+    generalVerticalLayer  float64 80.0
+    heightAboveGround     float64 10.0
+    ...                    ...
+    number                int64 0
+    step                  timedelta64[ns] 00:00:00
+    surface               float64 0.0
+    thermocline           float64 0.0
+    time                  datetime64[ns] 2022-04-01
+    atmML                 float64 0.0
+Data variables:
+    ALNU                  float32 dask.array<chunksize=(), meta=np.ndarray>>

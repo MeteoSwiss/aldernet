@@ -39,15 +39,16 @@ from aldernet.training_utils import train_model_simple
 # ---> DEFINE SETTINGS HERE <--- #
 input_species = "CORY"
 target_species = "ALNU"
-retrain_model = False
+retrain_model = True
 tune_with_ray = True
 zoom = ""
 noise_dim = 100
-epochs = 10
+epochs = 1
 shuffle = True
-add_weather = True
+add_weather = False
 conv = False
 members = 1
+device = {"cpu": 8}
 # -------------------------------#
 
 if target_species == "ALNU":
@@ -65,10 +66,14 @@ if tune_with_ray and retrain_model:
 hostname = socket.gethostname()
 if "tsa" in hostname:
     data_train = xr.open_zarr(
-        "/scratch/sadamov/pyprojects_data/aldernet/" + zoom + "/data_train.zarr"
+        "/scratch/sadamov/pyprojects_data/aldernet/5_threshold"
+        + zoom
+        + "/data_train.zarr"
     )
     data_valid = xr.open_zarr(
-        "/scratch/sadamov/pyprojects_data/aldernet/" + zoom + "/data_valid.zarr"
+        "/scratch/sadamov/pyprojects_data/aldernet/5_threshold"
+        + zoom
+        + "/data_valid.zarr"
     )
     data_season = xr.open_zarr(
         "/scratch/sadamov/pyprojects_data/aldernet/no_threshold/"
@@ -148,7 +153,7 @@ if retrain_model:
                 grace_period=1,
                 reduction_factor=3,
             ),
-            resources_per_trial={"gpu": 1},  # Choose appropriate Device
+            resources_per_trial=device,  # Choose appropriate Device
             config={
                 # define search space here
                 "learning_rate": tune.choice([0.001]),
