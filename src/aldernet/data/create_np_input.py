@@ -6,6 +6,9 @@
 import numpy as np
 import xarray as xr
 
+# First-party
+from aldernet.data.data_utils import Params
+
 # Data Import
 # Import zarr archive for the years 2020-2022
 data = xr.open_zarr("/scratch/sadamov/pyprojects_data/aldernet/data.zarr")
@@ -54,36 +57,15 @@ alder_valid = data_valid_norm.ALNU.values[:, :, :, np.newaxis]
 
 # Selection of additional weather parameters on ground level
 # Depending on the amount of weather fields this step takes several minutes to 1 hour.
-weather_params = [
-    "CORYctsum",
-    "CORYfe",
-    "CORYfr",
-    "CORYrprec",
-    "CORYsaisn",
-    "CORYsdes",
-    "cos_dayofyear",
-    "cos_hourofday",
-    "FIS",
-    "HPBL",
-    "HSURF",
-    "QR",
-    "P",
-    "sin_dayofyear",
-    "sin_hourofday",
-    "TQC",
-    "U",
-    "V",
-]
-# weather_params = list(data_train.drop_vars(("CORY", "ALNU")).keys())
 
 weather_train = (
-    data_train_norm.drop_vars(("CORY", "ALNU"))[weather_params]
+    data_train_norm.drop_vars(("CORY", "ALNU"))[Params().weather]
     .to_array()
     .transpose("valid_time", "y", "x", "variable")
     .to_numpy()
 )
 weather_valid = (
-    data_valid_norm.drop_vars(("CORY", "ALNU"))[weather_params]
+    data_valid_norm.drop_vars(("CORY", "ALNU"))[Params().weather]
     .to_array()
     .transpose("valid_time", "y", "x", "variable")
     .to_numpy()

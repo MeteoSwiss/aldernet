@@ -28,8 +28,10 @@ from tensorflow import random  # type: ignore
 
 # First-party
 from aldernet.data.data_utils import Batcher
+from aldernet.data.data_utils import Stations
 from aldernet.training_utils import compile_generator
 from aldernet.training_utils import define_filters
+from aldernet.training_utils import predict_season
 from aldernet.training_utils import tf_setup
 from aldernet.training_utils import train_model
 from aldernet.training_utils import train_model_simple
@@ -37,15 +39,15 @@ from aldernet.training_utils import train_model_simple
 # ---> DEFINE SETTINGS HERE <--- #
 input_species = "CORY"
 target_species = "ALNU"
-retrain_model = True
+retrain_model = False
 tune_with_ray = True
 zoom = ""
-noise_dim = 0
+noise_dim = 100
 epochs = 10
 shuffle = True
-add_weather = False
+add_weather = True
 conv = False
-members = 8
+members = 1
 # -------------------------------#
 
 if target_species == "ALNU":
@@ -59,10 +61,6 @@ random.set_seed(1)
 run_path = str(here()) + "/output/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 if tune_with_ray and retrain_model:
     Path(run_path + "/viz/valid").mkdir(parents=True, exist_ok=True)
-
-data_train = xr.DataArray()
-data_valid = xr.DataArray()
-data_season = xr.DataArray()
 
 hostname = socket.gethostname()
 if "tsa" in hostname:
@@ -92,6 +90,10 @@ elif "nid" in hostname:
         "/scratch/e1000/meteoswiss/scratch/sadamov/"
         "pyprojects_data/aldernet/no_threshold/" + zoom + "/data_valid.zarr"
     )
+else:
+    data_train = xr.DataArray()
+    data_valid = xr.DataArray()
+    data_season = xr.DataArray()
 
 if retrain_model:
     if tune_with_ray:
@@ -149,9 +151,9 @@ if retrain_model:
             resources_per_trial={"gpu": 1},  # Choose appropriate Device
             config={
                 # define search space here
-                "learning_rate": tune.choice([0.0001, 0.0005, 0.001]),
-                "beta_1": tune.choice([0.85, 0.9, 0.95]),
-                "beta_2": tune.choice([0.97, 0.98, 0.99]),
+                "learning_rate": tune.choice([0.001]),
+                "beta_1": tune.choice([0.9, 0.95]),
+                "beta_2": tune.choice([0.98, 0.99]),
                 "mlflow": {
                     "experiment_name": "Aldernet",
                     "tracking_uri": mlflow.get_tracking_uri(),
@@ -189,20 +191,13 @@ if retrain_model:
         best_model = simple_model
 else:
     best_model = Checkpoint.from_directory(
-        "/users/sadamov/pyprojects/aldernet/output/20221223_072834/"
-        "train_model_2022-12-23_07-28-51/train_model_10b7d_00000_0_batch_size=10,"
-        "beta_1=0.8500,beta_2=0.9700,learning_rate=0.0001_2022-12-23_07-29-03/"
-        "checkpoint_000001"
+        "/users/sadamov/pyprojects/aldernet/output/20221229_164219/"
+        "train_model_2022-12-29_16-42-33/train_model_69560_00000_0_beta_1="
+        "0.9500,beta_2=0.9800,"
+        "learning_rate=0.0010_2022-12-29_16-42-52/checkpoint_000000"
     ).to_dict()["model"]
 
-predictions = best_model.predict(
-    Batcher(
-        data_season.sortby("valid_time"),
-        batch_size=32,
-        add_weather=add_weather,
-        shuffle=False,
-    )
-)
+predictions = predict_season(best_model, data_season, noise_dim, add_weather)
 
 with open(str(here()) + "/data/scaling.txt", "r", encoding="utf-8") as f:
     lines = [line.rstrip() for line in f]
@@ -215,34 +210,8 @@ data_alnu_output = np.maximum(
 )
 data_alnu_output.to_netcdf(str(here()) + "/data/pollen_ml.nc")  # type: ignore
 
-# Retrieve the predicted values at all stations
-stations_coords = {
-    "grid_i": [525, 511, 651, 677, 420, 472, 456, 603, 614, 570, 636, 479, 540, 590],
-    "grid_j": [506, 444, 465, 429, 373, 463, 405, 365, 349, 455, 510, 451, 379, 485],
-}
-
-# i = lon = x
-# j = lat = y
-
-stations = [
-    "PBS",
-    "PBE",
-    "PBU",
-    "PDS",
-    "PGE",
-    "PCF",
-    "PLS",
-    "PLO",
-    "PLU",
-    "PLZ",
-    "PMU",
-    "PNE",
-    "PVI",
-    "PZH",
-]
-
 station_values = data_alnu_output.values[  # type:ignore
-    :, stations_coords["grid_j"], stations_coords["grid_i"]
+    :, Stations().grids["grid_j"], Stations().grids["grid_i"]
 ]
 
 data_pd = pd.concat(
@@ -255,7 +224,7 @@ data_pd = pd.concat(
     axis=1,
 )
 
-data_pd.columns = ["datetime", "taxon"] + stations  # type: ignore
+data_pd.columns = ["datetime", "taxon"] + Stations().name  # type: ignore
 
 data_pd.to_csv(str(here()) + "/data/pollen_ml.atab", sep=",", index=False)
 

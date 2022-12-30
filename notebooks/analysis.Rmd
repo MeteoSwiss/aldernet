@@ -267,7 +267,7 @@ data_ml <- data_ml_raw %>%
     )) %>%
   bind_rows() %>%
   select(taxon, station, type, value, datetime) %>%
-  mutate(value = 13 * value)
+  mutate(value = value)
 ```
 
 ## The Data
