@@ -594,9 +594,9 @@ dependencies:
   - tensorboard=2.10.1=pyhd8ed1ab_0
   - tensorboard-data-server=0.6.0=py310h597c629_3
   - tensorboard-plugin-wit=1.8.1=pyhd8ed1ab_0
-  - tensorflow=2.10.0=cuda112py310he87a039_0
-  - tensorflow-base=2.10.0=cuda112py310hf679b68_0
-  - tensorflow-estimator=2.10.0=cuda112py310h2fa73eb_0
+  - tensorflow
+  - tensorflow-base
+  - tensorflow-estimator
   - termcolor=2.0.1=pyhd8ed1ab_1
   - terminado=0.16.0=pyh41d4057_0
   - tinycss2=1.1.1=pyhd8ed1ab_0
@@ -659,11 +659,11 @@ dependencies:
   - zstd=1.5.2=h6239696_4
   - pip:
     - accelerate==0.14.0
-    - aldernet==0.1.0
+    - install -e .
     - click==8.0.4
     - denoising-diffusion-pytorch==0.31.1
     - distlib==0.3.6
-    - eccodes==1.5.0
+    - eccodes==2.24.2
     - einops==0.6.0
     - ema-pytorch==0.0.10
     - grpcio==1.43.0
