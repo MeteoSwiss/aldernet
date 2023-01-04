@@ -73,7 +73,7 @@ repos:
         verbose: true
     -   id: pylint
         name: pylint
-        entry: pylint
+        entry: bash run-pylint.sh
         language: system
         types: [python]
         exclude: |
@@ -81,4 +81,4 @@ repos:
                 src/other_repos|
             )$
         require_serial: true
-        files: ^(.*\.py|(src|tests|docs)/(.*/)*.*\.py)$
+        verbose: true

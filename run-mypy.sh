@@ -9,6 +9,8 @@
 #
 # src: https://jaredkhan.com/blog/mypy-pre-commit
 
+source /scratch-shared/meteoswiss/scratch/sadamov/mambaforge/bin/activate aldernet
+
 set -o errexit
 
 VERBOSE=${VERBOSE:-false}

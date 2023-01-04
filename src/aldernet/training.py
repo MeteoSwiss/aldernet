@@ -45,10 +45,10 @@ zoom = ""
 noise_dim = 100
 epochs = 1
 shuffle = True
-add_weather = False
+add_weather = True
 conv = False
 members = 1
-device = {"cpu": 8}
+device = {"cpu": members}
 # -------------------------------#
 
 if target_species == "ALNU":
