@@ -45,36 +45,36 @@ class Stations:
         """Define required data."""
         self.grids = {
             "grid_i": [
-                525,
-                511,
-                651,
-                677,
-                420,
-                472,
-                456,
-                603,
-                614,
-                570,
-                636,
-                479,
-                540,
-                590,
+                525 - 1,
+                511 - 1,
+                651 - 1,
+                677 - 1,
+                420 - 1,
+                472 - 1,
+                456 - 1,
+                603 - 1,
+                614 - 1,
+                570 - 1,
+                636 - 1,
+                479 - 1,
+                540 - 1,
+                590 - 1,
             ],
             "grid_j": [
-                506,
-                444,
-                465,
-                429,
-                373,
-                463,
-                405,
-                365,
-                349,
-                455,
-                510,
-                451,
-                379,
-                485,
+                506 - 1,
+                444 - 1,
+                465 - 1,
+                429 - 1,
+                373 - 1,
+                463 - 1,
+                405 - 1,
+                365 - 1,
+                349 - 1,
+                455 - 1,
+                510 - 1,
+                451 - 1,
+                379 - 1,
+                485 - 1,
             ],
         }
         self.name = [
@@ -132,9 +132,9 @@ class Batcher(tf.keras.utils.Sequence):
     def on_epoch_end(self):
         """Update indexes after each epoch."""
         if self.shuffle is True:
-            idx = np.random.permutation(len(self.x.values))
-            self.x.values = self.x.values[idx]
-            self.y.values = self.y.values[idx]
+            idx = np.random.permutation(len(self.x))
+            self.x = self.x[idx]
+            self.y = self.y[idx]
             if self.add_weather:
-                self.weather.values = self.weather.values[idx]
+                self.weather = self.weather[idx]
             print("Data Reshuffled!", flush=True)
