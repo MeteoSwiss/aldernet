@@ -200,9 +200,8 @@ with open(str(here()) + "/data/scaling.txt", "r", encoding="utf-8") as f:
     scale = float(lines[1].split(": ")[1])
 
 data_valid[target_species] = (data_valid.dims, np.squeeze(predictions))
-data_alnu_output = np.maximum(
-    0, 10 ** (data_valid[target_species] * scale + center) - 1
-)
+data_alnu_output = np.maximum(0, data_valid[target_species] * scale + center)
+
 data_alnu_output.to_netcdf(str(here()) + "/data/pollen_ml.nc")  # type: ignore
 
 station_values = data_alnu_output.values[  # type:ignore

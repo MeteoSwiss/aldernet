@@ -46,10 +46,10 @@ scale = data_train.std()
 with open(str(here()) + "/data/scaling.txt", "w", encoding="utf-8") as f:
     f.write(
         "center: "
-        + str(center[Params().y].values)
+        + str(center[Params().y].to_array().values[0])
         + "\n"
         + "scale: "
-        + str(scale[Params().y].values)
+        + str(scale[Params().y].to_array().values[0])
     )
 
 data_train_norm = (data_train - center) / scale
