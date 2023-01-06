@@ -26,21 +26,19 @@ data_zoom = data_select
 # print(np.argwhere(np.isnan(data_zoom.to_array().to_numpy())))
 data_zoom = data_zoom.interpolate_na(dim="x", method="linear", fill_value="extrapolate")
 
-# high_indices = (
-#     (data_zoom["CORY"].mean(dim=("x", "y")) > 5)
-#     | (data_zoom["ALNU"].mean(dim=("x", "y")) > 5)
-#     # & (data_zoom["CORY"].max(dim=("x", "y")) < 5000)
-#     # & (data_zoom["ALNU"].max(dim=("x", "y")) < 5000)
-# )
-
-# data_high = data_zoom.sel({"valid_time": data_zoom.valid_time[high_indices]})
-data_high = data_zoom
-
 # data_high.CORY.values = np.log10(data_high.CORY.values + 1)
 # data_high.ALNU.values = np.log10(data_high.ALNU.values + 1)
 
-data_train = data_high.sel(valid_time=slice("2020-01-01", "2021-12-31"))
-data_valid = data_high.sel(valid_time=slice("2022-01-01", "2022-12-31"))
+data_train = data_zoom.sel(valid_time=slice("2020-01-01", "2021-12-31"))
+data_valid = data_zoom.sel(valid_time=slice("2022-01-01", "2022-12-31"))
+
+high_indices = (
+    (data_train["CORY"].mean(dim=("x", "y")) > 5)
+    | (data_train["ALNU"].mean(dim=("x", "y")) > 5)
+    # & (data_train["CORY"].max(dim=("x", "y")) < 5000)
+    # & (data_train["ALNU"].max(dim=("x", "y")) < 5000)
+)
+data_train = data_train.sel({"valid_time": data_train.valid_time[high_indices]})
 
 center = data_train.mean()
 scale = data_train.std()
@@ -58,8 +56,8 @@ data_train_norm = (data_train - center) / scale
 data_valid_norm = (data_valid - center) / scale
 
 data_train_norm.chunk({"valid_time": 32, "y": 786, "x": 1170}).to_zarr(
-    "/scratch/sadamov/pyprojects_data/aldernet/data_train.zarr"
+    "/scratch/sadamov/pyprojects_data/aldernet/data_final/data_train.zarr"
 )
 data_valid_norm.chunk({"valid_time": 32, "y": 786, "x": 1170}).to_zarr(
-    "/scratch/sadamov/pyprojects_data/aldernet/data_valid.zarr"
+    "/scratch/sadamov/pyprojects_data/aldernet/data_final/data_valid.zarr"
 )
