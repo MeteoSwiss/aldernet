@@ -2,7 +2,7 @@
 #
 # Run pylint in the accurate local conda env
 
-source /scratch-shared/meteoswiss/scratch/sadamov/mambaforge/bin/activate aldernet
+source $SCRATCH/mambaforge/bin/activate aldernet
 
 set -o errexit
 

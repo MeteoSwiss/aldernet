@@ -43,12 +43,12 @@ retrain_model = True
 tune_with_ray = True
 zoom = ""
 noise_dim = 100
-epochs = 1
+epochs = 10
 shuffle = True
 add_weather = True
 conv = False
-members = 1
-device = {"cpu": members}
+members = 4
+device = {"gpu": members}
 # -------------------------------#
 
 if target_species == "ALNU":
@@ -68,37 +68,27 @@ if "tsa" in hostname:
     data_train = xr.open_zarr(
         "/scratch/sadamov/pyprojects_data/aldernet/5_threshold"
         + zoom
-        + "/data_train.zarr"
+        + "/data_final/data_train.zarr"
     )
     data_valid = xr.open_zarr(
         "/scratch/sadamov/pyprojects_data/aldernet/5_threshold"
         + zoom
-        + "/data_valid.zarr"
-    )
-    data_season = xr.open_zarr(
-        "/scratch/sadamov/pyprojects_data/aldernet/no_threshold/"
-        + zoom
-        + "/data_valid.zarr"
+        + "/data_final/data_valid.zarr"
     )
 elif "nid" in hostname:
     data_train = xr.open_zarr(
         "/scratch/e1000/meteoswiss/scratch/sadamov/pyprojects_data/aldernet/"
         + zoom
-        + "/data_train.zarr"
+        + "/data_final/data_train.zarr"
     )
     data_valid = xr.open_zarr(
         "/scratch/e1000/meteoswiss/scratch/sadamov/pyprojects_data/aldernet/"
         + zoom
-        + "/data_valid.zarr"
-    )
-    data_season = xr.open_zarr(
-        "/scratch/e1000/meteoswiss/scratch/sadamov/"
-        "pyprojects_data/aldernet/no_threshold/" + zoom + "/data_valid.zarr"
+        + "/data_final/data_valid.zarr"
     )
 else:
     data_train = xr.DataArray()
     data_valid = xr.DataArray()
-    data_season = xr.DataArray()
 
 if retrain_model:
     if tune_with_ray:
@@ -202,16 +192,16 @@ else:
         "learning_rate=0.0010_2022-12-29_16-42-52/checkpoint_000000"
     ).to_dict()["model"]
 
-predictions = predict_season(best_model, data_season, noise_dim, add_weather)
+predictions = predict_season(best_model, data_valid, noise_dim, add_weather)
 
 with open(str(here()) + "/data/scaling.txt", "r", encoding="utf-8") as f:
     lines = [line.rstrip() for line in f]
     center = float(lines[0].split(": ")[1])
     scale = float(lines[1].split(": ")[1])
 
-data_season[target_species] = (data_season.dims, np.squeeze(predictions))
+data_valid[target_species] = (data_valid.dims, np.squeeze(predictions))
 data_alnu_output = np.maximum(
-    0, 10 ** (data_season[target_species] * scale + center) - 1
+    0, 10 ** (data_valid[target_species] * scale + center) - 1
 )
 data_alnu_output.to_netcdf(str(here()) + "/data/pollen_ml.nc")  # type: ignore
 
@@ -222,7 +212,7 @@ station_values = data_alnu_output.values[  # type:ignore
 data_pd = pd.concat(
     [
         pd.DataFrame(
-            {"datetime": data_season.valid_time.values, "taxon": target_species_name}
+            {"datetime": data_valid.valid_time.values, "taxon": target_species_name}
         ),
         pd.DataFrame(station_values),
     ],

@@ -788,26 +788,26 @@ def train_model_simple(  # pylint: disable=R0914,R0915
     return model
 
 
-def predict_season(best_model, data_season, noise_dim, add_weather):
+def predict_season(best_model, data_valid, noise_dim, add_weather):
     """Predict full pollen season with best model."""
-    data_season = Batcher(
-        data_season.sortby("valid_time"),
+    data_valid = Batcher(
+        data_valid.sortby("valid_time"),
         batch_size=32,
         add_weather=add_weather,
         shuffle=False,
     )
 
     if noise_dim > 0:
-        noise_season = tf.random.normal([data_season.x.shape[0], noise_dim])
+        noise_season = tf.random.normal([data_valid.x.shape[0], noise_dim])
         if add_weather:
             predictions = best_model.predict(
-                [noise_season, data_season.x, data_season.weather]
+                [noise_season, data_valid.x, data_valid.weather]
             )
         else:
-            predictions = best_model.predict([noise_season, data_season.x])
+            predictions = best_model.predict([noise_season, data_valid.x])
     else:
         if add_weather:
-            predictions = best_model.predict([data_season.x, data_season.weather])
+            predictions = best_model.predict([data_valid.x, data_valid.weather])
         else:
-            predictions = best_model.predict(data_season.x)
+            predictions = best_model.predict(data_valid.x)
     return predictions
