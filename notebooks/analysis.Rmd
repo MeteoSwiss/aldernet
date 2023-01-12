@@ -129,7 +129,7 @@ data_dwh <- read_table(paste(datapath), skip = 17) %>%
 
 ```{r include=FALSE}
 
-datapath <- paste0(here(), "/data/", str_sub(year_selected, 3, 4), "_alnu_cosmo.atab")
+datapath <- paste0(here(), "/data/", str_sub(year_selected, 3, 4), "_cory_cosmo.atab")
 data_cosmo_input <- read_table(paste(datapath), col_names = TRUE, skip = 18) %>%
   pivot_longer(PBS:PZH,
     names_to = "station_tag",
@@ -144,7 +144,8 @@ data_cosmo_input <- read_table(paste(datapath), col_names = TRUE, skip = 18) %>%
       sprintf("%02d", DD),
       sprintf("%02d", hh)
     )),
-    type = type
+    type = type,
+    taxon = species_selected
   ) %>%
   select(taxon, station, datetime, value, type) %>%
   filter(taxon == species_selected & between(
@@ -180,7 +181,7 @@ data_cosmo_input <- read_table(paste(datapath), col_names = TRUE, skip = 18) %>%
 
 ```{r include=FALSE}
 
-datapath <- paste0(here(), "/data/", str_sub(year_selected, 3, 4), "_cory_cosmo.atab")
+datapath <- paste0(here(), "/data/", str_sub(year_selected, 3, 4), "_alnu_cosmo.atab")
 data_cosmo_target <- read_table(paste(datapath), col_names = TRUE, skip = 18) %>%
   pivot_longer(PBS:PZH,
     names_to = "station_tag",
@@ -195,8 +196,7 @@ data_cosmo_target <- read_table(paste(datapath), col_names = TRUE, skip = 18) %>
       sprintf("%02d", DD),
       sprintf("%02d", hh)
     )),
-    type = type,
-    taxon = species_selected
+    type = type
   ) %>%
   select(taxon, station, datetime, value, type) %>%
   filter(taxon == species_selected & between(
@@ -1258,7 +1258,7 @@ kappa_cosmo_target %>%
   pivot_longer(-1) %>%
   pivot_wider(names_from = type) %>%
   mutate(
-    change = scales::percent(change, 0.01),
+    change = formattable::percent(change),
     across(2:3, round, 2),
     change = case_when(
       name == "Accuracy" & change > -0.2 ~ cell_spec(change, background = col_hex[3]),

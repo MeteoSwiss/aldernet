@@ -414,6 +414,7 @@ dependencies:
   - r-forcats=0.5.2=r42hc72bb7e_1
   - r-foreach=1.5.2=r42hc72bb7e_1
   - r-foreign=0.8_84=r42h133d619_0
+  - r-formattable=0.2.1=r42ha770c72_1
   - r-fs=1.5.2=r42h7525677_2
   - r-future=1.30.0=r42hc72bb7e_0
   - r-future.apply=1.10.0=r42hc72bb7e_0
@@ -662,7 +663,7 @@ dependencies:
     - click==8.0.4
     - denoising-diffusion-pytorch==0.31.1
     - distlib==0.3.6
-    - eccodes==2.24.2
+    - eccodes
     - einops==0.6.0
     - ema-pytorch==0.0.10
     - grpcio==1.43.0
