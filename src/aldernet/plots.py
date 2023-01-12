@@ -53,7 +53,7 @@ for valid_time in range(len(ds.ALNU.valid_time)):
         cmap="RdBu_r",
     )
 
-    colorbar = list(range(0, int(ds["ALNU"].values.max()) + 200, 200))
+    colorbar = list(range(0, 501, 50))
     plot1.update(bounds=colorbar, cticks=colorbar)
 
     plt.ioff()
