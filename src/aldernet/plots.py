@@ -22,10 +22,10 @@ from pyprojroot import here  # type:ignore
 output_path = os.path.join(str(here()), "output/gif/")
 
 # %%
-# ds = xr.open_zarr(
-#     "/scratch/sadamov/pyprojects_data/aldernet/no_threshold/data_valid.zarr"
-# )
-ds = xr.open_dataset(str(here()) + "/data/pollen_ml.nc")
+ds = xr.open_zarr(
+    "/scratch/sadamov/pyprojects_data/aldernet/no_threshold/data_valid.zarr"
+)
+# ds = xr.open_dataset(str(here()) + "/data/pollen_ml.nc")
 
 # %%
 with open(str(here()) + "/data/scaling.txt", "r", encoding="utf-8") as f:
@@ -36,7 +36,7 @@ with open(str(here()) + "/data/scaling.txt", "r", encoding="utf-8") as f:
 ds["ALNU"].values = np.maximum(0, ds["ALNU"].values * scale + center)
 
 # %%
-for valid_time in range(len(ds.ALNU.valid_time)):
+for valid_time in range(999, len(ds.ALNU.valid_time)):
     plot1 = ds.psy.plot.mapplot(
         name="ALNU",
         valid_time=valid_time,
@@ -53,12 +53,13 @@ for valid_time in range(len(ds.ALNU.valid_time)):
         cmap="RdBu_r",
     )
 
-    colorbar = list(range(0, int(ds["ALNU"].values.max()) + 200, 200))
+    colorbar = list(range(0, 1001, 50))
     plot1.update(bounds=colorbar, cticks=colorbar)
 
     plt.ioff()
     plot1.export(output_path + "/map" + str(valid_time).zfill(4) + ".png")
     plt.ion()
+    plt.close()
 
 
 # %%
