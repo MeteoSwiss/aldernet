@@ -414,6 +414,7 @@ dependencies:
   - r-forcats
   - r-foreach
   - r-foreign
+  - r-formattable
   - r-fs
   - r-future
   - r-future.apply
