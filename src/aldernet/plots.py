@@ -22,10 +22,10 @@ from pyprojroot import here  # type:ignore
 output_path = os.path.join(str(here()), "output/gif/")
 
 # %%
-ds = xr.open_zarr(
-    "/scratch/sadamov/pyprojects_data/aldernet/no_threshold/data_valid.zarr"
-)
-# ds = xr.open_dataset(str(here()) + "/data/pollen_ml.nc")
+# ds = xr.open_zarr(
+#     "/scratch/sadamov/pyprojects_data/aldernet/no_threshold/data_valid.zarr"
+# )
+ds = xr.open_dataset(str(here()) + "/data/pollen_ml.nc")
 
 # %%
 with open(str(here()) + "/data/scaling.txt", "r", encoding="utf-8") as f:

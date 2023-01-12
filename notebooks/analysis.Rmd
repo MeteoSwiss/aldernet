@@ -1230,24 +1230,24 @@ FINAL DECISION:
 
 
 ```{r echo=FALSE, message=FALSE}
-decision_num <- metrics_cosmo_input %>%
+decision_num <- metrics_cosmo_target %>%
   bind_rows(metrics_ml) %>%
   select(Bias, SD, MAE, RMSLE, type)
 
-change_num <- abs(metrics_ml %>% select(-type)) / abs(metrics_cosmo_input %>% select(-type)) - 1
+change_num <- abs(metrics_ml %>% select(-type)) / abs(metrics_cosmo_target %>% select(-type)) - 1
 change_num %<>%
   add_column("type" = "change") %>%
   select(Bias, SD, MAE, RMSLE, type)
 
-kappa_cosmo_input %>%
+kappa_cosmo_target %>%
   bind_rows(kappa_ml) %>%
   select("value" = ".", everything()) %>%
   pivot_wider(names_from = "type") %>%
-  mutate(change = abs(ml / cosmo_input) - 1) %>%
+  mutate(change = abs(ml / cosmo_target) - 1) %>%
   bind_rows(
     mae_category %>%
-      mutate(metric = "MAE_cat", change = abs(MAE_ml / MAE_cosmo_input) - 1) %>%
-      select(metric, cosmo_input = MAE_cosmo_input, ml = MAE_ml, change)
+      mutate(metric = "MAE_cat", change = abs(MAE_ml / MAE_cosmo_target) - 1) %>%
+      select(metric, cosmo_target = MAE_cosmo_target, ml = MAE_ml, change)
   ) %>%
   pivot_longer(2:4, names_to = "type") %>%
   pivot_wider(names_from = metric) %>%
@@ -1255,46 +1255,27 @@ kappa_cosmo_input %>%
     decision_num %>%
       bind_rows(change_num)
   ) %>%
-  mutate(across(2:8, round, 2)) %>%
+  pivot_longer(-1) %>%
+  pivot_wider(names_from = type) %>%
   mutate(
-    Accuracy = case_when(
-      Accuracy > 0.2 & type == "change" ~ cell_spec(Accuracy,
-        background = col_hex[3]
-      ),
-      Accuracy <= -0.2 & type == "change" ~ cell_spec(Accuracy,
-        background = col_hex[2]
-      ),
-      TRUE ~ cell_spec(Accuracy)
-    ),
-    Kappa = case_when(
-      Kappa > -0.2 & type == "change" ~ cell_spec(Kappa, background = col_hex[3]),
-      Kappa <= -0.2 & type == "change" ~ cell_spec(Kappa, background = col_hex[2]),
-      TRUE ~ cell_spec(Kappa)
-    ),
-    MAE_cat = case_when(
-      MAE_cat < 0.2 & type == "change" ~ cell_spec(MAE_cat, background = col_hex[3]),
-      MAE_cat >= 0.2 & type == "change" ~ cell_spec(MAE_cat, background = col_hex[2]),
-      TRUE ~ cell_spec(MAE_cat)
-    ),
-    Bias = case_when(
-      Bias < 0.5 & type == "change" ~ cell_spec(Bias, background = col_hex[3]),
-      Bias >= 0.5 & type == "change" ~ cell_spec(Bias, background = col_hex[2]),
-      TRUE ~ cell_spec(Bias)
-    ),
-    SD = case_when(
-      SD < 0.2 & type == "change" ~ cell_spec(SD, background = col_hex[3]),
-      SD >= 0.2 & type == "change" ~ cell_spec(SD, background = col_hex[2]),
-      TRUE ~ cell_spec(SD)
-    ),
-    MAE = case_when(
-      MAE < 0.2 & type == "change" ~ cell_spec(MAE, background = col_hex[3]),
-      MAE >= 0.2 & type == "change" ~ cell_spec(MAE, background = col_hex[2]),
-      TRUE ~ cell_spec(MAE)
-    ),
-    RMSLE = case_when(
-      RMSLE < 0.1 & type == "change" ~ cell_spec(RMSLE, background = col_hex[3]),
-      RMSLE >= 0.1 & type == "change" ~ cell_spec(RMSLE, background = col_hex[2]),
-      TRUE ~ cell_spec(RMSLE)
+    change = scales::percent(change, 0.01),
+    across(2:3, round, 2),
+    change = case_when(
+      name == "Accuracy" & change > -0.2 ~ cell_spec(change, background = col_hex[3]),
+      name == "Accuracy" & change <= -0.2 ~ cell_spec(change, background = col_hex[2]),
+      name == "Kappa" & change > -0.2 ~ cell_spec(change, background = col_hex[3]),
+      name == "Kappa" & change <= -0.2 ~ cell_spec(change, background = col_hex[2]),
+      name == "MAE_cat" & change < 0.2 ~ cell_spec(change, background = col_hex[3]),
+      name == "MAE_cat" & change >= 0.2 ~ cell_spec(change, background = col_hex[2]),
+      name == "Bias" & change < 0.5 ~ cell_spec(change, background = col_hex[3]),
+      name == "Bias" & change >= 0.5 ~ cell_spec(change, background = col_hex[2]),
+      name == "SD" & change < 0.2 ~ cell_spec(change, background = col_hex[3]),
+      name == "SD" & change >= 0.2 ~ cell_spec(change, background = col_hex[2]),
+      name == "MAE" & change < 0.2 ~ cell_spec(change, background = col_hex[3]),
+      name == "MAE" & change >= 0.2 ~ cell_spec(change, background = col_hex[2]),
+      name == "RMSLE" & change < 0.1 ~ cell_spec(change, background = col_hex[3]),
+      name == "RMSLE" & change >= 0.1 ~ cell_spec(change, background = col_hex[2]),
+      TRUE ~ cell_spec(change)
     )
   ) %>%
   kable(escape = FALSE) %>%

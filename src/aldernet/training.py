@@ -47,8 +47,8 @@ epochs = 10
 shuffle = True
 add_weather = True
 conv = False
-members = 4
-device = {"gpu": members}
+members = 1
+device = {"gpu": 4}
 # -------------------------------#
 
 if target_species == "ALNU":
@@ -140,7 +140,7 @@ if retrain_model:
             scheduler=ASHAScheduler(
                 time_attr="training_iteration",
                 max_t=epochs,
-                grace_period=1,
+                grace_period=2,
                 reduction_factor=3,
             ),
             resources_per_trial=device,  # Choose appropriate Device
