@@ -226,7 +226,7 @@ def write_png(image, path, pretty):
     if pretty:
 
         minmin = min(image[0].min(), image[1].min(), image[2].min())
-        maxmax = max(image[0].max(), image[1].max(), image[2].max())
+        maxmax = min(max(image[0].max(), image[1].max(), image[2].max()), 500)
 
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(10, 2.1), dpi=150)
         ax1.imshow(
@@ -320,6 +320,11 @@ def train_model(  # pylint: disable=R0912,R0913,R0914,R0915
     step_valid = 1
     checkpoint = Checkpoint.from_dict(dict({"dummy": 0}))
 
+    with open(str(here()) + "/data/scaling.txt", "r", encoding="utf-8") as f:
+        lines = [line.rstrip() for line in f]
+        center = float(lines[0].split(": ")[1])
+        scale = float(lines[1].split(": ")[1])
+
     # betas need to be floats, or checkpoint restoration fails
     optimizer_gen = tf.keras.optimizers.Adam(
         learning_rate=config["learning_rate"],
@@ -360,9 +365,9 @@ def train_model(  # pylint: disable=R0912,R0913,R0914,R0915
                 index = np.random.randint(hazel_train.shape[0])
 
                 viz = (
-                    hazel_train[index],
-                    alder_train[index],
-                    generated_train[index].numpy(),
+                    hazel_train[index] * scale + center,
+                    alder_train[index] * scale + center,
+                    generated_train[index].numpy() * scale + center,
                 )
 
                 write_png(
@@ -396,9 +401,9 @@ def train_model(  # pylint: disable=R0912,R0913,R0914,R0915
                     generated_valid = generator([hazel_valid])
                 index = np.random.randint(hazel_valid.shape[0])
                 viz = (
-                    hazel_valid[index],
-                    alder_valid[index],
-                    generated_valid[index].numpy(),
+                    hazel_valid[index] * scale + center,
+                    alder_valid[index] * scale + center,
+                    generated_valid[index].numpy() * scale + center,
                 )
                 write_png(
                     viz,
@@ -471,9 +476,9 @@ def train_model(  # pylint: disable=R0912,R0913,R0914,R0915
                 index = np.random.randint(hazel_train.shape[0])
 
                 viz = (
-                    hazel_train[index],
-                    alder_train[index],
-                    generated_train[index].numpy(),
+                    hazel_train[index] * scale + center,
+                    alder_train[index] * scale + center,
+                    generated_train[index].numpy() * scale + center,
                 )
                 write_png(
                     viz,
@@ -509,9 +514,9 @@ def train_model(  # pylint: disable=R0912,R0913,R0914,R0915
                     generated_valid = generator([hazel_valid, weather_valid])
                 index = np.random.randint(hazel_valid.shape[0])
                 viz = (
-                    hazel_valid[index],
-                    alder_valid[index],
-                    generated_valid[index].numpy(),
+                    hazel_valid[index] * scale + center,
+                    alder_valid[index] * scale + center,
+                    generated_valid[index].numpy() * scale + center,
                 )
                 write_png(
                     viz,
@@ -551,6 +556,11 @@ def train_model(  # pylint: disable=R0912,R0913,R0914,R0915
 def train_model_simple(  # pylint: disable=R0914,R0915
     data_train, data_valid, epochs, add_weather, conv=True
 ):
+
+    with open(str(here()) + "/data/scaling.txt", "r", encoding="utf-8") as f:
+        lines = [line.rstrip() for line in f]
+        center = float(lines[0].split(": ")[1])
+        scale = float(lines[1].split(": ")[1])
 
     if add_weather:
         data_train.x = xr.concat([data_train.x, data_train.weather], dim="var")
@@ -778,9 +788,9 @@ def train_model_simple(  # pylint: disable=R0914,R0915
     for timestep in range(0, predictions.shape[0], 100):
         write_png(
             (
-                data_valid.x[timestep].values,
-                data_valid.y[timestep].values,
-                predictions[timestep],
+                data_valid.x[timestep].values * scale + center,
+                data_valid.y[timestep].values * scale + center,
+                predictions[timestep] * scale + center,
             ),
             path=str(here()) + "/output/prediction" + str(timestep) + ".png",
             pretty=True,
