@@ -693,7 +693,6 @@ dependencies:
     - torchvision==0.14.0
     - tqdm==4.64.1
     - visions==0.7.5
-    - install -e .
 variables:
   FIELDEXTRA_PATH: /project/s83c/fieldextra/tsa/bin/fieldextra_gnu_opt_omp
   GRIB_DEFINITION_PATH: /project/g110/spack-install/tsa/cosmo-eccodes-definitions/2.19.0.7/gcc/zcuyy4uduizdpxfzqmxg6bc74p2skdfp/cosmoDefinitions/definitions/:/project/g110/spack-install/tsa/eccodes/2.19.0/gcc/viigacbsqxbbcid22hjvijrrcihebyeh/share/eccodes/definitions/
