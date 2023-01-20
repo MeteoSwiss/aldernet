@@ -1,4 +1,4 @@
-name: aldernet_prod
+name: aldernet
 channels:
   - conda-forge
   - defaults
@@ -264,7 +264,7 @@ dependencies:
   - zlib=1.2.13=h166bdaf_4
   - zstd=1.5.2=h6239696_4
   - pip:
-    - aldernet==0.1.0
+    - -e ../.
     - alembic==1.9.1
     - cloudpickle==2.2.0
     - databricks-cli==0.17.4

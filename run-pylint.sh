@@ -2,7 +2,7 @@
 #
 # Run pylint in the accurate local conda env
 
-source $SCRATCH/mambaforge/bin/activate aldernet
+source $SCRATCH/mambaforge/bin/activate aldernet-dev
 
 set -o errexit
 

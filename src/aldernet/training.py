@@ -16,12 +16,12 @@ import mlflow  # type: ignore
 import numpy as np
 import pandas as pd  # type: ignore
 import xarray as xr
-from keras.utils import plot_model  # type: ignore
+from keras.utils.vis_utils import plot_model  # type: ignore
 from pyprojroot import here  # type: ignore
 from ray import init
 from ray import shutdown
 from ray import tune
-from ray.air.callbacks.mlflow import MLflowLoggerCallback
+from ray.air.callbacks.mlflow import MLflowLoggerCallback  # type: ignore
 from ray.air.checkpoint import Checkpoint
 from ray.tune.schedulers import ASHAScheduler
 from tensorflow import random  # type: ignore
@@ -42,10 +42,10 @@ target_species = "ALNU"
 retrain_model = True
 tune_with_ray = True
 zoom = ""
-noise_dim = 100
+noise_dim = 0
 epochs = 10
 shuffle = True
-add_weather = True
+add_weather = False
 conv = False
 members = 1
 device = {"gpu": 4}
@@ -119,7 +119,7 @@ if retrain_model:
         init(
             runtime_env={
                 "working_dir": str(here()),
-                "excludes": ["data/", ".git/", "images/"],
+                "excludes": ["data/", ".git/", "images/", "core"],
             }
         )
 

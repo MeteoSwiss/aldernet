@@ -9,7 +9,7 @@
 #
 # src: https://jaredkhan.com/blog/mypy-pre-commit
 
-source $SCRATCH/mambaforge/bin/activate aldernet
+source $SCRATCH/mambaforge/bin/activate aldernet-dev
 
 set -o errexit
 
