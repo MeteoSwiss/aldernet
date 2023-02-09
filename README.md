@@ -6,19 +6,22 @@ Once you created or cloned this repository, make sure the installation is runnin
 Check available options with
 
 ```bash
-setup_env.sh -h
+tools/setup_env.sh -h
 ```
 
 We distinguish development installations which are editable and have additional dependencies on formatters and linters from productive installations which are non-editable
 and have no additional dependencies. Moreover we distinguish pinned installations based on exported (reproducible) environments and free installations where the installation
-is based on first level dependencies listed in `requirements/requirements.yml` and `requirements/dev-requirements.yml` respectively. If you start developing, you might want to do a free
-development installation and export the environments right away.
+is based on top-level dependencies listed in `requirements/requirements.yml`. If you start developing, you might want to do an unpinned installation and export the environment:
 
 ```bash
-setup_env.sh -d -e -m -n <package_env_name>
+tools/setup_env.sh -u -e -n <package_env_name>
 ```
 
 *Hint*: If you are the package administrator, it is a good idea to understand what this script does, you can do everything manually with `conda` instructions.
+
+*Hint*: Use the flag `-m` to speed up the installation using mamba. Of course you will have to install mamba first (we recommend to install mamba into your base
+environment `conda install -c conda-forge mamba`. If you install mamba in another (maybe dedicated) environment, environments installed with mamba will be located
+in `<miniconda_root_dir>/envs/mamba/envs`, which is not very practical.
 
 The package itself is installed with `pip`:
 
@@ -29,14 +32,45 @@ pip install --editable .
 
 *Warning:* Make sure you use the right pip, i.e. the one from the installed conda environment (`which pip` should point to something like `path/to/miniconda/envs/<package_env_name>/bin/pip`).
 
-Once your package is installed, run the tests by typing
+Once your package is installed, run the tests by typing:
 
 ```bash
+conda activate <package_env_name>
 pytest
 ```
 
-. If the tests pass, you are good to go. If not, contact the package administrator Simon Adamov. Make sure to update your requirement files and export your environments after installation
-every time you add new imports while developing. Check the next section to find some guidance on the development process if you are new to Python and/ or APN.
+If the tests pass, you are good to go. If not, contact the package administrator Simon Adamov. Make sure to update your requirement files and export your environments after installation
+every time you add new imports while developing. Check the next section to find some guidance on the development process if you are new to Python and/or APN.
+
+### Roadmap to your first contribution
+
+Generally, the source code of your library is located in `src/<library_name>`. The blueprint will generate some example code in `mutable_number.py`, `utils.py` and `cli.py`. `cli.py` thereby serves as an entry
+point for functionalities you want to execute from the command line, it is based on the Click library. If you do not need interactions with the command line, you should remove `cli.py`. Moreover, of course there exist other options for command line interfaces,
+a good overview may be found here (<https://realpython.com/comparing-python-command-line-parsing-libraries-argparse-docopt-click/>), we recommend however to use click. The provided example
+code should provide some guidance on how the individual source code files interact within the library. In addition to the example code in `src/<library_name>`, there are examples for
+unit tests in `tests/<library_name>/`, which can be triggered with `pytest` from the command line. Once you implemented a feature (and of course you also
+implemented a meaningful test ;-)), you are likely willing to commit it. First, go to the root directory of your package and run pytest.
+
+```bash
+conda activate <package_env_name>
+cd <package-root-dir>
+pytest
+```
+
+Note that neither pytest, nor pre-commit, nor any of the linters invoked by the pre-commit hooks will be available in the production environment, so make sure you have a development environment
+installed and activated. If you use the blueprint as is, pre-commit will not be triggered locally but only if you push to the main branch
+(or push to a PR to the main branch). If you consider it useful, you can set up pre-commit to run locally before every commit by initializing it once. In the root directory of
+your package, type:
+
+```bash
+pre-commit install
+```
+
+If you run `pre-commit` without installing it before (line above), it will fail and the only way to recover it, is to do a forced reinstallation (`conda install --force-reinstall pre-commit`).
+You can also just run pre-commit selectively, whenever you want by typing (`pre-commit run --all-files`). Note that mypy and pylint take a bit of time, so it is really
+up to you, if you want to use pre-commit locally or not. In any case, after running pytest, you can commit and the linters will run at the latest on the GitHub actions server,
+when you push your changes to the main branch. Note that pytest is currently not invoked by pre-commit, so it will not run automatically. Automated testing should be implemented
+in a Jenkins pipeline (template for a plan available in `jenkins/`. See the next section for more details.
 
 ## Development tools
 
@@ -51,7 +85,7 @@ machines, which is only possible with a Jenkins pipeline (GitHub actions is runn
 
 ### Pre-commit on GitHub actions
 
-`.github/workflows/pre-commit.yml` contains a hook that will trigger the creation of your environment (unpinned, dev) on the GitHub actions server and
+`.github/workflows/pre-commit.yml` contains a hook that will trigger the creation of your environment (unpinned) on the GitHub actions server and
 then run pytest as well as various formatters and linters through pre-commit. This hook is only triggered upon pushes to the main branch (in general: don't do that)
 and in pull requests to the main branch.
 

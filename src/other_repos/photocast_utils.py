@@ -30,7 +30,6 @@ experiment_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 
 def tf_setup(memory_limit=8000):
-
     gpus = tf.config.list_physical_devices("GPU")
     for gpu in gpus:
         tf.config.set_logical_device_configuration(
@@ -42,7 +41,6 @@ def tf_setup(memory_limit=8000):
 
 
 def cutmix_maps(shape):
-
     batch_size, height, width, channels = shape
     maps = np.ones(shape)
 
@@ -66,7 +64,6 @@ def cutmix_maps(shape):
 
 
 def cutmix_validate(height, width):
-
     maps = cutmix_maps([5, height, width, 1])
     for bb in range(maps.shape[0]):
         plt.imshow(maps[bb, :, :])
@@ -116,7 +113,6 @@ class SpectralNormalization(Constraint):
 
 
 def cbr(filters, name=None):
-
     block = keras.Sequential(name=name)
     block.add(
         layers.Conv2D(
@@ -134,7 +130,6 @@ def cbr(filters, name=None):
 
 
 def down(filters, name=None):
-
     block = keras.Sequential(name=name)
     block.add(
         layers.Conv2D(
@@ -153,7 +148,6 @@ def down(filters, name=None):
 
 
 def up(filters, name=None):
-
     block = keras.Sequential(name=name)
     block.add(
         layers.Conv2DTranspose(
@@ -180,7 +174,6 @@ noise_channels = 128
 
 
 def generator(height, width, weather_features):
-
     weather_input = keras.Input(shape=weather_features * 2, name="weather-input")
     weather = layers.RepeatVector(height * width)(weather_input)
     weather = layers.Reshape((height, width, weather_features * 2))(weather)
@@ -192,7 +185,6 @@ def generator(height, width, weather_features):
 
     u_skip_layers = [block]
     for ll in range(1, len(filters) // 2):
-
         block = down(filters[ll], "down_%s-down" % ll)(block)
 
         # Collect U-Net skip connections
@@ -211,7 +203,6 @@ def generator(height, width, weather_features):
     u_skip_layers.pop()
 
     for ll in range(len(filters) // 2, len(filters) - 1):
-
         block = up(filters[ll], "up_%s-up" % (len(filters) - ll - 1))(block)
 
         # Connect U-Net skip
@@ -262,7 +253,6 @@ interpolation = "nearest"
 
 
 def discriminator(height, width, weather_features):
-
     weather_input = keras.Input(shape=weather_features * 2, name="weather-input")
     weather = layers.RepeatVector(height * width)(weather_input)
     weather = layers.Reshape((height, width, weather_features * 2))(weather)
@@ -278,7 +268,6 @@ def discriminator(height, width, weather_features):
 
     u_skip_layers = [block]
     for ll in range(1, len(filters) // 2):
-
         block = down(filters[ll], "down_%s-down" % ll)(block)
 
         # Collect U-Net skip connections
@@ -294,7 +283,6 @@ def discriminator(height, width, weather_features):
     u_skip_layers.pop()
 
     for ll in range(len(filters) // 2, len(filters) - 1):
-
         block = up(filters[ll], "up_%s-up" % (len(filters) - ll - 1))(block)
 
         # Connect U-Net skip
@@ -339,7 +327,6 @@ def gan_step(
     summary_writer,
     step,
 ):
-
     noise = tf.random.normal([images_a.shape[0], noise_dim])
     weathers = tf.concat([weathers_a, weathers_b], axis=1)
     with tf.GradientTape() as tape_gen:
@@ -387,7 +374,6 @@ def train_gan(
     while True:
         start = time.time()
         for images_a, weathers_a, images_b, weathers_b in dataset_train:
-
             print(epoch.numpy(), "-", step.numpy(), flush=True)
 
             gan_step(
