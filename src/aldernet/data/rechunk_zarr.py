@@ -20,11 +20,11 @@ import xarray as xr
 
 data = xr.open_zarr("/scratch/sadamov/pyprojects_data/aldernet/data")
 
-my_dict = dict(
-    valid_time=data.valid_time.data,
-    latitude=(["y", "x"], data.latitude.data),
-    longitude=(["y", "x"], data.longitude.data),
-)
+my_dict = {
+    "valid_time": data.valid_time.data,
+    "latitude": (["y", "x"], data.latitude.data),
+    "longitude": (["y", "x"], data.longitude.data),
+}
 my_dims = {"y": data.dims.mapping["y"], "x": data.dims.mapping["x"]}
 
 data["cos_dayofyear"] = (

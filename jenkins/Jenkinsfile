@@ -1,4 +1,11 @@
 pipeline {
+    options {
+    // the variable $WORKSPACE is assigned dynamically at the beginning of every stage
+    // and might change depending on the number of concurrent builds active.
+    // We can only allow 1 concurrent build to have a consistent access to $WORKSPACE
+    // Otherwise we should use stash/unstash for the miniconda installation
+        disableConcurrentBuilds()
+    }
     environment {
        PATH = "$WORKSPACE/miniconda/bin:$PATH"
     }
@@ -17,7 +24,7 @@ pipeline {
             steps {
                 sh '''#!/usr/bin/env bash
                 set -e
-                bash setup_miniconda.sh -p ${WORKSPACE}
+                bash tools/setup_miniconda.sh -p ${WORKSPACE}
                 '''
             }
         }
@@ -27,9 +34,9 @@ pipeline {
                 set -e
                 cd ${WORKSPACE}/aldernet
                 source ${WORKSPACE}/miniconda/etc/profile.d/conda.sh
-                conda init bash
+                conda init bash --no-user --install --system
                 conda activate
-                ./setup_env.sh -n aldernet -u
+                bash tools/setup_env.sh -n aldernet -u
                 conda activate aldernet
                 pip install --no-deps .
                 '''
@@ -39,7 +46,7 @@ pipeline {
             steps {
                 sh '''#!/usr/bin/env bash
                 source $WORKSPACE/miniconda/etc/profile.d/conda.sh
-                conda init bash
+                conda init bash --no-user --install --system
                 conda activate aldernet
                 cd ${WORKSPACE}/aldernet
                 pytest tests
@@ -51,10 +58,10 @@ pipeline {
                 sh '''#!/usr/bin/env bash
                 set -e
                 source $WORKSPACE/miniconda/etc/profile.d/conda.sh
-                conda init bash
+                conda init bash --no-user --install --system
                 conda activate
                 cd ${WORKSPACE}/aldernet
-                ./setup_env.sh -n aldernet -d -u
+                bash tools/setup_env.sh -n dev-aldernet -u
                 conda activate dev-aldernet
                 pip install --no-deps --editable .
                 '''
@@ -64,7 +71,7 @@ pipeline {
             steps {
                 sh '''#!/usr/bin/env bash
                 source $WORKSPACE/miniconda/etc/profile.d/conda.sh
-                conda init bash
+                conda init bash --no-user --install --system
                 conda activate dev-aldernet
                 cd ${WORKSPACE}/aldernet
                 pytest tests
@@ -76,10 +83,10 @@ pipeline {
                 sh '''#!/usr/bin/env bash
                 set -e
                 source $WORKSPACE/miniconda/etc/profile.d/conda.sh
-                conda init bash
+                conda init bash --no-user --install --system
                 conda activate
                 cd ${WORKSPACE}/aldernet
-                ./setup_env.sh -n pinned-aldernet
+                bash tools/setup_env.sh -n pinned-aldernet
                 conda activate pinned-aldernet
                 pip install --no-deps .
                 '''
@@ -100,10 +107,10 @@ pipeline {
                 sh '''#!/usr/bin/env bash
                 set -e
                 source $WORKSPACE/miniconda/etc/profile.d/conda.sh
-                conda init bash
+                conda init bash --no-user --install --system
                 conda activate
                 cd ${WORKSPACE}/aldernet
-                ./setup_env.sh -n pinned-aldernet -d
+                bash tools/setup_env.sh -n pinned-dev-aldernet
                 conda activate pinned-dev-aldernet
                 pip install --no-deps --editable .
                 '''

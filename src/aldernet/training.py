@@ -21,8 +21,8 @@ from pyprojroot import here  # type: ignore
 from ray import init
 from ray import shutdown
 from ray import tune
-from ray.air.callbacks.mlflow import MLflowLoggerCallback  # type: ignore
 from ray.air.checkpoint import Checkpoint
+from ray.air.integrations.mlflow import MLflowLoggerCallback  # type: ignore
 from ray.tune.schedulers import ASHAScheduler
 from tensorflow import random  # type: ignore
 
@@ -68,12 +68,12 @@ if "tsa" in hostname:
     data_train = xr.open_zarr(
         "/scratch/sadamov/pyprojects_data/aldernet/5_threshold"
         + zoom
-        + "/data_final/data_train.zarr"
+        + "/data_train.zarr"
     )
     data_valid = xr.open_zarr(
         "/scratch/sadamov/pyprojects_data/aldernet/5_threshold"
         + zoom
-        + "/data_final/data_valid.zarr"
+        + "/data_valid.zarr"
     )
 elif "nid" in hostname:
     data_train = xr.open_zarr(

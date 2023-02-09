@@ -95,7 +95,6 @@ class SpectralNormalization(Constraint):
 
 
 def cbr(filters, name=None) -> Sequential:
-
     block = keras.Sequential(name=name)
     block.add(
         layers.Conv2D(
@@ -113,7 +112,6 @@ def cbr(filters, name=None) -> Sequential:
 
 
 def down(filters, name=None) -> Sequential:
-
     block = keras.Sequential(name=name)
     block.add(
         layers.Conv2D(
@@ -134,7 +132,6 @@ def down(filters, name=None) -> Sequential:
 
 
 def up(filters, name=None) -> Sequential:
-
     block = keras.Sequential(name=name)
     block.add(
         layers.Conv2DTranspose(
@@ -222,9 +219,7 @@ def compile_generator(height, width, weather_features, noise_dim, filters):
 
 
 def write_png(image, path, pretty):
-
     if pretty:
-
         minmin = min(image[0].min(), image[1].min(), image[2].min())
         maxmax = min(max(image[0].max(), image[1].max(), image[2].max()), 500)
 
@@ -301,7 +296,6 @@ def gan_step(  # pylint: disable=R0913
 def train_model(  # pylint: disable=R0912,R0913,R0914,R0915
     config, generator, data_train, data_valid, run_path, noise_dim, add_weather, shuffle
 ):
-
     data_train = Batcher(
         data_train, batch_size=32, add_weather=add_weather, shuffle=shuffle
     )
@@ -339,7 +333,6 @@ def train_model(  # pylint: disable=R0912,R0913,R0914,R0915
         loss_valid = np.zeros(0)
         if not add_weather:
             for i in range(math.floor(data_train.x.shape[0] / data_train.batch_size)):
-
                 hazel_train = data_train[i][0]
                 alder_train = data_train[i][1]
 
@@ -390,7 +383,6 @@ def train_model(  # pylint: disable=R0912,R0913,R0914,R0915
             )
 
             for i in range(math.floor(data_valid.x.shape[0] / data_valid.batch_size)):
-
                 hazel_valid = data_valid[i][0]
                 alder_valid = data_valid[i][1]
 
@@ -425,10 +417,10 @@ def train_model(  # pylint: disable=R0912,R0913,R0914,R0915
                 )
 
                 checkpoint = Checkpoint.from_dict(
-                    dict(
-                        epoch=epoch,
-                        model=generator,
-                    )
+                    {
+                        "epoch": epoch,
+                        "model": generator,
+                    }
                 )
 
             session.report(
@@ -447,7 +439,6 @@ def train_model(  # pylint: disable=R0912,R0913,R0914,R0915
         else:
             start = time.time()
             for i in range(math.floor(data_train.x.shape[0] / data_train.batch_size)):
-
                 hazel_train = data_train[i][0]
                 weather_train = data_train[i][1]
                 alder_train = data_train[i][2]
@@ -500,7 +491,6 @@ def train_model(  # pylint: disable=R0912,R0913,R0914,R0915
             )
 
             for i in range(math.floor(data_valid.x.shape[0] / data_valid.batch_size)):
-
                 hazel_valid = data_valid[i][0]
                 weather_valid = data_valid[i][1]
                 alder_valid = data_valid[i][2]
@@ -537,7 +527,7 @@ def train_model(  # pylint: disable=R0912,R0913,R0914,R0915
                     ).numpy(),
                 )
 
-                checkpoint = Checkpoint.from_dict(dict(epoch=epoch, model=generator))
+                checkpoint = Checkpoint.from_dict({"epoch": epoch, "model": generator})
 
             session.report(
                 {
@@ -556,7 +546,6 @@ def train_model(  # pylint: disable=R0912,R0913,R0914,R0915
 def train_model_simple(  # pylint: disable=R0914,R0915
     data_train, data_valid, epochs, add_weather, conv=True
 ):
-
     with open(str(here()) + "/data/scaling.txt", "r", encoding="utf-8") as f:
         lines = [line.rstrip() for line in f]
         center = float(lines[0].split(": ")[1])
