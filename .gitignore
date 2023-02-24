@@ -137,3 +137,4 @@ src/test.py
 src/other_repos
 src/aldernet/sample*
 .lintr
+*.png
