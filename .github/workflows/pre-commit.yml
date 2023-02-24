@@ -37,7 +37,8 @@ jobs:
         mamba run --name dev_env pip install --no-deps .
     - name: Install pre-commit hooks
       run: |
-        mamba run --name dev_env pre-commit install-hooks
+        mamba run --name dev_env pre-commit install-hooks;
+        mypy --install-types
     - name: Run pre-commit hooks
       run: |
         mamba run --name dev_env pre-commit run --all-files
