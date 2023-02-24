@@ -26,6 +26,8 @@ jobs:
         channels: conda-forge
         channel-priority: flexible
         show-channel-urls: true
+    - name: Install mamba
+      run: conda install mamba
     - name: Create env from unpinned reqs
       run: |
         mamba env create --name dev_env --file requirements/requirements.yml
