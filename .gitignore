@@ -111,11 +111,6 @@ venv_*/
 .vscode
 
 # Project Specific
-code_yinghao
-outputs/*
-images
-annotations
-oxford_segmentation.h5
 data/cevio
 data/cosmo
 data/images_animals
@@ -124,17 +119,11 @@ data/cosmo*
 data/images*
 data/*.nc
 data/*.diagnostic
-
-mlruns
-run__
-src/photocast_utils.py-jvsc*.ipynb
-src/training_utils.py-jvsc*.ipynb
 output
-src/training_utils.py
-test.png
-.gitignore
 src/test.py
 src/other_repos
 src/aldernet/sample*
+mlruns
 .lintr
 *.png
+src/aldernet/diffusion.py
