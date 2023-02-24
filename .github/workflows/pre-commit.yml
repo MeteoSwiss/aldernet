@@ -30,8 +30,8 @@ jobs:
       run: conda install mamba
     - name: Create env from unpinned reqs
       run: |
-        sed -i '/cuda/d' requirements/requirements.yml;
-        mamba env create --name dev_env --file requirements/requirements.yml
+        sed '/cud/d' requirements/requirements.yml >> requirements/requirements_nocuda.yml;
+        mamba env create --name dev_env --file requirements/requirements_nocuda.yml
     - name: Install project into env
       run: |
         mamba run --name dev_env pip install --no-deps .
