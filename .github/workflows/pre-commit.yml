@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        shell: bash -l {0} 2>&1
+        shell: bash -l {0}
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python
@@ -30,6 +30,7 @@ jobs:
       run: conda install mamba
     - name: Create env from unpinned reqs
       run: |
+        sed -i '/cuda/d' requirements/requirements.yml;
         mamba env create --name dev_env --file requirements/requirements.yml
     - name: Install project into env
       run: |
