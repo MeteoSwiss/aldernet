@@ -1,4 +1,4 @@
-name: aldernet
+name: aldernet_clean
 channels:
   - pytorch
   - nvidia
@@ -9,19 +9,19 @@ dependencies:
   - _libgcc_mutex=0.1
   - _openmp_mutex=4.5
   - absl-py=1.4.0
-  - aiohttp=3.8.3
+  - aiohttp=3.8.4
   - aiohttp-cors=0.7.0
   - aiorwlock=1.3.0
   - aiosignal=1.3.1
   - alabaster=0.7.13
-  - alembic=1.9.3
+  - alembic=1.9.4
   - alsa-lib=1.2.8
   - anaconda-client=1.11.0
   - anyio=3.6.2
   - appdirs=1.4.4
   - arrow-cpp=9.0.0
   - asciitree=0.3.3
-  - astroid=2.14.1
+  - astroid=2.14.2
   - asttokens=2.2.1
   - astunparse=1.6.3
   - async-timeout=4.0.2
@@ -125,14 +125,14 @@ dependencies:
   - exceptiongroup=1.1.0
   - executing=1.2.0
   - expat=2.5.0
-  - fastapi=0.90.0
+  - fastapi=0.92.0
   - fasteners=0.17.3
   - fftw=3.3.10
   - filelock=3.9.0
   - findlibs=0.0.2
   - flake8=6.0.0
   - flake8-black=0.3.5
-  - flask=2.2.2
+  - flask=2.2.3
   - flatbuffers=2.0.8
   - fmt=9.1.0
   - font-ttf-dejavu-sans-mono=2.37
@@ -157,13 +157,13 @@ dependencies:
   - gflags=2.2.2
   - giflib=5.2.1
   - gitdb=4.0.10
-  - gitpython=3.1.30
+  - gitpython=3.1.31
   - glib=2.74.1
   - glib-tools=2.74.1
   - glob2=0.7
   - glog=0.6.0
   - google-api-core=2.11.0
-  - google-auth=2.16.0
+  - google-auth=2.16.1
   - google-auth-oauthlib=0.4.6
   - google-pasta=0.2.0
   - googleapis-common-protos=1.57.1
@@ -185,14 +185,14 @@ dependencies:
   - hdf4=4.2.15
   - hdf5=1.12.2
   - icu=70.1
-  - identify=2.5.17
+  - identify=2.5.18
   - idna=3.4
   - imagesize=1.4.1
-  - importlib-metadata=4.11.4
-  - importlib_resources=5.10.2
+  - importlib-metadata=4.13.0
+  - importlib_resources=5.12.0
   - iniconfig=2.0.0
   - ipdb=0.13.11
-  - ipython=8.9.0
+  - ipython=8.10.0
   - isort=5.12.0
   - itsdangerous=2.1.2
   - jack=1.9.22
@@ -257,7 +257,7 @@ dependencies:
   - libgomp=12.2.0
   - libgoogle-cloud=2.3.0
   - libgpg-error=1.46
-  - libhwloc=2.8.0
+  - libhwloc=2.9.0
   - libiconv=1.17
   - liblapack=3.9.0
   - liblief=0.12.3
@@ -298,7 +298,7 @@ dependencies:
   - libwebp=1.2.4
   - libwebp-base=1.2.4
   - libxcb=1.13
-  - libxkbcommon=1.0.3
+  - libxkbcommon=1.5.0
   - libxml2=2.10.3
   - libzip=1.9.2
   - libzlib=1.2.13
@@ -310,10 +310,10 @@ dependencies:
   - mako=1.2.4
   - mamba=1.1.0
   - markdown=3.4.1
-  - markdown-it-py=2.1.0
+  - markdown-it-py=2.2.0
   - markupsafe=2.1.2
-  - matplotlib=3.6.3
-  - matplotlib-base=3.6.3
+  - matplotlib=3.7.0
+  - matplotlib-base=3.7.0
   - matplotlib-inline=0.1.6
   - mccabe=0.7.0
   - mdurl=0.1.0
@@ -323,7 +323,7 @@ dependencies:
   - msgpack-python=1.0.4
   - multidict=6.0.4
   - munkres=1.1.4
-  - mypy=1.0.0
+  - mypy=1.0.1
   - mypy_extensions=1.0.0
   - mysql-common=8.0.32
   - mysql-libs=8.0.32
@@ -333,7 +333,7 @@ dependencies:
   - nodejs=18.12.1
   - nsight-compute=2022.4.1.6
   - nspr=4.35
-  - nss=3.82
+  - nss=3.88
   - numba=0.56.4
   - numcodecs=0.11.0
   - numpy=1.23.5
@@ -342,12 +342,12 @@ dependencies:
   - opencensus=0.11.1
   - opencensus-context=0.1.3
   - openjpeg=2.5.0
-  - openssl=1.1.1s
+  - openssl=1.1.1t
   - opt_einsum=3.3.0
   - orc=1.8.0
   - packaging=22.0
   - pandas=1.5.3
-  - pango=1.50.12
+  - pango=1.50.13
   - paramiko=3.0.0
   - parquet-cpp=1.5.1
   - parso=0.8.3
@@ -359,7 +359,7 @@ dependencies:
   - pexpect=4.8.0
   - pickleshare=0.7.5
   - pillow=9.4.0
-  - pip=23.0
+  - pip=23.0.1
   - pixman=0.40.0
   - pkginfo=1.9.6
   - pkgutil-resolve-name=1.3.10
@@ -369,7 +369,7 @@ dependencies:
   - pooch=1.6.0
   - pre-commit=3.0.4
   - proj=9.1.1
-  - prometheus_flask_exporter=0.21.0
+  - prometheus_flask_exporter=0.22.2
   - prompt-toolkit=3.0.36
   - prompt_toolkit=3.0.36
   - protobuf=4.21.12
@@ -388,13 +388,13 @@ dependencies:
   - pycodestyle=2.10.0
   - pycosat=0.6.4
   - pycparser=2.21
-  - pydantic=1.10.4
+  - pydantic=1.10.5
   - pydocstyle=6.3.0
   - pydot=1.4.2
   - pyflakes=3.0.1
   - pygments=2.14.0
   - pyjwt=2.6.0
-  - pylint=2.16.1
+  - pylint=2.16.2
   - pynacl=1.5.0
   - pyopenssl=23.0.0
   - pyparsing=3.0.9
@@ -447,12 +447,12 @@ dependencies:
   - ruamel.yaml.clib=0.2.7
   - s2n=1.0.10
   - scikit-learn=1.2.1
-  - scipy=1.10.0
+  - scipy=1.10.1
   - setproctitle=1.2.2
   - setuptools=65.6.3
   - shap=0.41.0
   - shapely=2.0.1
-  - shellingham=1.5.0.post1
+  - shellingham=1.5.1
   - sip=6.7.7
   - six=1.16.0
   - sleef=3.5.1
@@ -475,9 +475,9 @@ dependencies:
   - sqlite=3.40.0
   - sqlparse=0.4.3
   - stack_data=0.6.2
-  - starlette=0.23.0
+  - starlette=0.25.0
   - tabulate=0.9.0
-  - tbb=2021.7.0
+  - tbb=2021.8.0
   - tensorboard=2.10.1
   - tensorboard-data-server=0.6.1
   - tensorboard-plugin-wit=1.8.1
@@ -499,8 +499,8 @@ dependencies:
   - traitlets=5.9.0
   - typer=0.4.2
   - types-docutils=0.18.3
-  - types-setuptools=67.2.0.0
-  - types-toml=0.10.8.3
+  - types-setuptools=67.4.0.1
+  - types-toml=0.10.8.5
   - typing=3.10.0.0
   - typing-extensions=4.4.0
   - typing_extensions=4.4.0
@@ -513,7 +513,7 @@ dependencies:
   - watchgod=0.8.2
   - wcwidth=0.2.6
   - websocket-client=1.5.1
-  - werkzeug=2.2.2
+  - werkzeug=2.2.3
   - wheel=0.38.4
   - wrapt=1.14.1
   - xarray=2023.2.0
@@ -542,29 +542,30 @@ dependencies:
   - yaml-cpp=0.7.0
   - yarl=1.8.2
   - zarr=2.13.6
-  - zipp=3.12.1
+  - zipp=3.14.0
   - zlib=1.2.13
   - zstandard=0.19.0
   - zstd=1.5.2
   - pip:
-    - accelerate==0.16.0
-    - copier==7.0.1
-    - denoising-diffusion-pytorch==1.1.1
-    - dunamai==1.15.0
-    - einops==0.6.0
-    - ema-pytorch==0.1.4
-    - flake8-pyproject==1.2.2
-    - iconarray==0.2.1
-    - iteration-utilities==0.11.0
-    - jinja2-ansible-filters==1.3.2
-    - mistune==2.0.5
-    - patsy==0.5.3
-    - plumbum==1.8.1
-    - prometheus-client==0.16.0
-    - psy-maps==1.4.2
-    - psy-reg==1.4.0
-    - psy-simple==1.4.1
-    - pyyaml-include==1.3
-    - questionary==1.10.0
-    - sphinx-mdinclude==0.5.3
-    - statsmodels==0.13.5
+      - accelerate==0.16.0
+      - copier==7.0.1
+      - denoising-diffusion-pytorch==1.2.2
+      - dunamai==1.16.0
+      - einops==0.6.0
+      - ema-pytorch==0.2.1
+      - flake8-pyproject==1.2.2
+      - iconarray==0.2.5
+      - iteration-utilities==0.11.0
+      - jinja2-ansible-filters==1.3.2
+      - lion-pytorch==0.0.7
+      - mistune==2.0.5
+      - patsy==0.5.3
+      - plumbum==1.8.1
+      - prometheus-client==0.16.0
+      - psy-maps==1.4.2
+      - psy-reg==1.4.0
+      - psy-simple==1.4.1
+      - pyyaml-include==1.3
+      - questionary==1.10.0
+      - sphinx-mdinclude==0.5.3
+      - statsmodels==0.13.5

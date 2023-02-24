@@ -1,4 +1,4 @@
-# Aldernet: Aldernet
+# Aldernet
 
 ## Start developing
 
@@ -8,9 +8,7 @@ Check available options with
 ```bash
 tools/setup_env.sh -h
 ```
-
-We distinguish development installations which are editable and have additional dependencies on formatters and linters from productive installations which are non-editable
-and have no additional dependencies. Moreover we distinguish pinned installations based on exported (reproducible) environments and free installations where the installation
+We distinguish pinned installations based on exported (reproducible) environments and free installations where the installation
 is based on top-level dependencies listed in `requirements/requirements.yml`. If you start developing, you might want to do an unpinned installation and export the environment:
 
 ```bash
@@ -23,7 +21,7 @@ tools/setup_env.sh -u -e -n <package_env_name>
 environment `conda install -c conda-forge mamba`. If you install mamba in another (maybe dedicated) environment, environments installed with mamba will be located
 in `<miniconda_root_dir>/envs/mamba/envs`, which is not very practical.
 
-The package itself is installed with `pip`:
+The package itself is installed with `pip`. For development, install in editable mode:
 
 ```bash
 conda activate <package_env_name>
@@ -57,8 +55,7 @@ cd <package-root-dir>
 pytest
 ```
 
-Note that neither pytest, nor pre-commit, nor any of the linters invoked by the pre-commit hooks will be available in the production environment, so make sure you have a development environment
-installed and activated. If you use the blueprint as is, pre-commit will not be triggered locally but only if you push to the main branch
+If you use the tools provided by the blueprint as is, pre-commit will not be triggered locally but only if you push to the main branch
 (or push to a PR to the main branch). If you consider it useful, you can set up pre-commit to run locally before every commit by initializing it once. In the root directory of
 your package, type:
 
@@ -69,8 +66,8 @@ pre-commit install
 If you run `pre-commit` without installing it before (line above), it will fail and the only way to recover it, is to do a forced reinstallation (`conda install --force-reinstall pre-commit`).
 You can also just run pre-commit selectively, whenever you want by typing (`pre-commit run --all-files`). Note that mypy and pylint take a bit of time, so it is really
 up to you, if you want to use pre-commit locally or not. In any case, after running pytest, you can commit and the linters will run at the latest on the GitHub actions server,
-when you push your changes to the main branch. Note that pytest is currently not invoked by pre-commit, so it will not run automatically. Automated testing should be implemented
-in a Jenkins pipeline (template for a plan available in `jenkins/`. See the next section for more details.
+when you push your changes to the main branch. Note that pytest is currently not invoked by pre-commit, so it will not run automatically. Automated testing can be set up with
+GitHub Actions or be implemented in a Jenkins pipeline (template for a plan available in `jenkins/`. See the next section for more details.
 
 ## Development tools
 
@@ -86,7 +83,7 @@ machines, which is only possible with a Jenkins pipeline (GitHub actions is runn
 ### Pre-commit on GitHub actions
 
 `.github/workflows/pre-commit.yml` contains a hook that will trigger the creation of your environment (unpinned) on the GitHub actions server and
-then run pytest as well as various formatters and linters through pre-commit. This hook is only triggered upon pushes to the main branch (in general: don't do that)
+then run various formatters and linters through pre-commit. This hook is only triggered upon pushes to the main branch (in general: don't do that)
 and in pull requests to the main branch.
 
 ### Jenkins
@@ -98,7 +95,44 @@ and exclusively run your tests and checks on GitHub actions.
 
 ## Features
 
-- TODO
+This repo contains the code to train the Aldernet neural network model to predict surface level pollen concentrations.
+To retrain the model simply run this command from the project root directory:
+
+`python src/aldernet/training.py`
+
+As the training requires lots of computational resources, it is suggested to work on a HPC system.
+For example at CSCS on the Balfrin cluster you can run this command:
+
+`srun -N1 -n1 --gres=gpu:4 --job-name=MLFlow --time=23:59:00 --partition=normal --account=s83 python src/aldernet/training.py`
+
+The training is conducted by ray tune for parallel computations and hyper-parameter tuning and
+MLFlow for logging and checkpointing.
+
+Define training setting on lines 39-52 in the file `src/aldernet/training.py`
+and paths to the input data on lines 54-79, before starting the training.
+To use the data at the default path location you need access to the MeteoSwiss CSCS-Clusters.
+This data is not freely available as of right now.
+
+The following is a list of the most important files in this repo with a short explanation:
+
+- **data**:
+  - `fieldextra_alnu.nl/fieldextra_cory.nl`: [`Fieldextra`](https://github.com/COSMO-ORG/fieldextra) namelist to retrieve Cosmo model output data
+  - `retrieve_dwh.sh`: retrieval of pollen station measurements from the MeteoSwiss Data-Warehouse
+  - `scaling.txt`: the scaling applied to the Alder pollen concentrations before model training
+  - `species.RData/stations.RData`: lists containing names and abbreviations of pollen species and stations
+- **notebooks**:
+  - `analysis.Rmd`: statistical verification of modelled vs. measured concentrations at station level
+  - `example_cosmo_pollen.ipynp`: mapplot using Psyplot and Iconarray packages
+  - `profiling.ipynp`: descriptive statistics of input features and their correlations
+- **src/aldernet:**
+  - `training.py`: the main script to start the training of the neural network
+  - `utils.py`: containing all functions required by the training.py script
+  - `plots.py`: creation of mapplots and animated gifs
+  - **data:**
+    - `data_202X.py`: yearly aggregation of GRIB2 model output into zarr archives
+    - `rechunk_zarr.py`: combined all yearly zarr archives into one and rechunk by valid_time
+    - `data_utils.py`: various functions required by the other scripts in the data folder
+    - `create_batcher_input.np:` Preprocessing and train/test split of the data input
 
 ## Credits
 

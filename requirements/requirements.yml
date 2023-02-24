@@ -54,6 +54,7 @@ dependencies:
   - toml>=0.10
   - torchaudio
   - torchvision
+  - types-Pillow
   - types-setuptools>=65.6
   - types-toml>=0.10
   - xarray

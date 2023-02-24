@@ -29,12 +29,12 @@ from tensorflow import random  # type: ignore
 # First-party
 from aldernet.data.data_utils import Batcher
 from aldernet.data.data_utils import Stations
-from aldernet.training_utils import compile_generator
-from aldernet.training_utils import define_filters
-from aldernet.training_utils import predict_season
-from aldernet.training_utils import tf_setup
-from aldernet.training_utils import train_model
-from aldernet.training_utils import train_model_simple
+from aldernet.utils import compile_generator
+from aldernet.utils import define_filters
+from aldernet.utils import predict_season
+from aldernet.utils import tf_setup
+from aldernet.utils import train_model
+from aldernet.utils import train_model_simple
 
 # ---> DEFINE SETTINGS HERE <--- #
 input_species = "CORY"
@@ -42,7 +42,7 @@ target_species = "ALNU"
 retrain_model = True
 tune_with_ray = True
 zoom = ""
-noise_dim = 0
+noise_dim = 100
 epochs = 10
 shuffle = True
 add_weather = False
@@ -50,18 +50,6 @@ conv = False
 members = 1
 device = {"gpu": 4}
 # -------------------------------#
-
-if target_species == "ALNU":
-    target_species_name = "Alnus"
-else:
-    target_species_name = ""
-
-tf_setup()
-random.set_seed(1)
-
-run_path = str(here()) + "/output/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-if tune_with_ray and retrain_model:
-    Path(run_path + "/viz/valid").mkdir(parents=True, exist_ok=True)
 
 hostname = socket.gethostname()
 if "tsa" in hostname:
@@ -89,6 +77,18 @@ elif "nid" in hostname:
 else:
     data_train = xr.DataArray()
     data_valid = xr.DataArray()
+
+if target_species == "ALNU":
+    target_species_name = "Alnus"
+else:
+    target_species_name = ""
+
+tf_setup()
+random.set_seed(1)
+
+run_path = str(here()) + "/output/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+if tune_with_ray and retrain_model:
+    Path(run_path + "/viz/valid").mkdir(parents=True, exist_ok=True)
 
 if retrain_model:
     if tune_with_ray:
