@@ -1,4 +1,4 @@
-# Aldernet: Aldernet
+# Aldernet
 
 ## Start developing
 
