@@ -12,6 +12,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 
 # Third-party
+import git
 import mlflow  # type: ignore
 import numpy as np
 import pandas as pd  # type: ignore
@@ -36,6 +37,9 @@ from aldernet.utils import tf_setup
 from aldernet.utils import train_model
 from aldernet.utils import train_model_simple
 
+repo = git.Repo(search_parent_directories=True)
+sha = repo.head.object.hexsha
+
 # ---> DEFINE SETTINGS HERE <--- #
 input_species = "CORY"
 target_species = "ALNU"
@@ -43,7 +47,7 @@ retrain_model = True
 tune_with_ray = True
 zoom = ""
 noise_dim = 100
-epochs = 10
+epochs = 1
 shuffle = True
 add_weather = False
 conv = False
@@ -140,7 +144,7 @@ if retrain_model:
             scheduler=ASHAScheduler(
                 time_attr="training_iteration",
                 max_t=epochs,
-                grace_period=2,
+                grace_period=1,
                 reduction_factor=3,
             ),
             resources_per_trial=device,  # Choose appropriate Device
@@ -156,10 +160,10 @@ if retrain_model:
             },
             local_dir=run_path,
             keep_checkpoints_num=1,
-            checkpoint_at_end=True,
             callbacks=[
                 MLflowLoggerCallback(
                     experiment_name="Aldernet",
+                    tags={"git_commit": sha},
                     tracking_uri=run_path + "/mlruns",
                     save_artifact=True,
                 )
