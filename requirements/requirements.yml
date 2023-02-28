@@ -9,8 +9,9 @@ dependencies:
   # runtime
   - click>=8.1  # for sample code
   # development
-  - "ray-air"
-  - "ray-tune"
+  - ray-air
+  - ray-tune
+  - ray-dashboard
   - anaconda-client>=1.11
   - black>=22.10
   - boa>=0.14
@@ -45,6 +46,29 @@ dependencies:
   - pytest>=7.2
   - pytorch
   - pytorch-cuda=11.7
+  - r-base
+  - r-caret
+  - r-conflicted
+  - r-dplyr
+  - r-formattable
+  - r-ggplot2
+  - r-ggpubr
+  - r-ggtext
+  - r-gridExtra
+  - r-here
+  - r-kableExtra
+  - r-lubridate
+  - r-magrittr
+  - r-nparcomp
+  - r-padr
+  - r-psych
+  - r-purrr
+  - r-readr
+  - r-rmarkdown
+  - r-scales
+  - r-stringr
+  - r-tibble
+  - r-tidyr
   - rich>=12.6
   - rope>=1.6
   - rstcheck>=6.1

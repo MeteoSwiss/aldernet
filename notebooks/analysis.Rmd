@@ -26,26 +26,27 @@ verification method has been widely accepted in the pollen community.
 Pollen surface level concentrations (i.e. level k=80 in Cosmo) are evaluated.
 
 ```{r include=FALSE}
-library(readr)
+library(caret)
+library(conflicted)
 library(dplyr)
-library(tibble)
-library(tidyr)
-library(stringr)
-library(magrittr)
-library(padr)
-library(kableExtra)
-library(purrr)
+library(formattable)
 library(ggplot2)
 library(ggpubr)
-library(gridExtra)
 library(ggtext)
+library(gridExtra)
 library(here)
+library(kableExtra)
 library(lubridate)
-library(caret)
-library(psych)
-library(scales)
+library(magrittr)
 library(nparcomp)
-library(conflicted)
+library(padr)
+library(psych)
+library(purrr)
+library(readr)
+library(scales)
+library(stringr)
+library(tibble)
+library(tidyr)
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("date", "lubridate")
@@ -311,25 +312,17 @@ data_combined <- data_dwh %>%
     taxon == species_selected,
     station != "Davos"
   ) %>%
-  mutate(type = factor(type,
-    ordered = TRUE,
-    levels = c("measurement", "cosmo_input", "cosmo_target", "ml")
-  ))
+  mutate(
+    type = factor(
+      type,
+      ordered = TRUE,
+      levels = c("measurement", "cosmo_input", "cosmo_target", "ml")),
+    value = value + 0.001)
 
-data_above10 <- data_combined %>%
-  pivot_wider(names_from = type) %>%
-  filter(measurement > 10, cosmo_input > 10, cosmo_target > 10, ml > 10) %>%
-  pivot_longer(measurement:ml, names_to = "type", values_to = "value") %>%
-  mutate(type = factor(type,
-    ordered = TRUE,
-    levels = c("measurement", "cosmo_input", "cosmo_target", "ml")
-  ))
+data_log10 <- data_combined %>%
+  mutate(value = log10(value))
 
-
-data_log10 <- data_above10 %>%
-  mutate(value = log10(value + 0.0001))
-
-data_altman <- data_above10 %>%
+data_altman <- data_combined %>%
   pivot_wider(names_from = type) %>%
   select(datetime, measurement, cosmo_input, cosmo_target, ml) %>%
   mutate(
@@ -382,8 +375,6 @@ data_impact_categories <- data_combined %>%
     ~ factor(., levels = c("nothing", "weak", "medium", "strong", "verystrong"))
   )
 
-data_impact_categories_above10 <- data_impact_categories %>%
-  filter(measurement > 10)
 ```
 
 ## Residual Analysis
@@ -402,7 +393,7 @@ not as important compared to a regression setting, as we are typically fitting â
 
 ```{r include=FALSE}
 op <- options(contrasts = c("contr.sum", "contr.poly"))
-fit_anova <- aov(as.formula(paste("value ~ type")), data = data_above10)
+fit_anova <- aov(as.formula(paste("value ~ type")), data = data_combined)
 fit_anova_log <- aov(as.formula(paste("value ~ type")), data = data_log10)
 ```
 
@@ -482,7 +473,7 @@ gg_timeline_log <- tibble(id = seq_len(nrow(data_log10)), time = data_log10$date
 resid <- residuals(fit_anova, type = "pearson")
 resid_df <- tibble(resid = resid, id = as.numeric(names(resid)))
 
-gg_timeline <- tibble(id = seq_len(nrow(data_above10)), time = data_above10$datetime) %>%
+gg_timeline <- tibble(id = seq_len(nrow(data_combined)), time = data_combined$datetime) %>%
   left_join(resid_df, by = "id") %>%
   ggplot(aes(x = time, y = resid)) +
   geom_point(alpha = 0.1, col = "#222225") +
@@ -558,7 +549,7 @@ The overall distribution of the concentration values is shown in the following:
 First, as a boxplot and second as a histogram.
 
 ```{r echo=FALSE}
-(gg_boxplot <- data_above10 %>%
+(gg_boxplot <- data_combined %>%
   ggplot() +
   geom_boxplot(aes(y = value, fill = type), alpha = 0.9) +
   theme(
@@ -574,7 +565,7 @@ First, as a boxplot and second as a histogram.
 ```
 
 ```{r echo=FALSE}
-sd_hirst <- data_above10 %>%
+sd_hirst <- data_combined %>%
   group_by(type) %>%
   summarise(sd = sd(value))
 
@@ -950,7 +941,7 @@ data_impact_categories %>%
 First, various metrics are compared where the pollen concentrations are considered a continuous numerical variable.
 
 ```{r echo=FALSE}
-metrics_cosmo_input <- data_above10 %>%
+metrics_cosmo_input <- data_combined %>%
   pivot_wider(names_from = type) %>%
   filter(!is.na(cosmo_input)) %>%
   mutate(
@@ -967,7 +958,7 @@ metrics_cosmo_input <- data_above10 %>%
   ) %>%
   mutate(type = "cosmo_input")
 
-metrics_cosmo_target <- data_above10 %>%
+metrics_cosmo_target <- data_combined %>%
   pivot_wider(names_from = type) %>%
   filter(!is.na(cosmo_target)) %>%
   mutate(
@@ -984,7 +975,7 @@ metrics_cosmo_target <- data_above10 %>%
   ) %>%
   mutate(type = "cosmo_target")
 
-metrics_ml <- data_above10 %>%
+metrics_ml <- data_combined %>%
   pivot_wider(names_from = type) %>%
   filter(!is.na(ml)) %>%
   mutate(
@@ -1019,8 +1010,8 @@ https://towardsdatascience.com/multi-class-metrics-made-simple-the-kappa-score-a
 
 ```{r echo=FALSE}
 matrix_cosmo_input <- confusionMatrix(
-  data_impact_categories_above10$categories_cosmo_input,
-  data_impact_categories_above10$categories_measurement
+  data_impact_categories$categories_cosmo_input,
+  data_impact_categories$categories_measurement
 )
 kappa_cosmo_input <- matrix_cosmo_input$overall[1:2] %>%
   tibble() %>%
@@ -1030,8 +1021,8 @@ kappa_cosmo_input <- matrix_cosmo_input$overall[1:2] %>%
   )
 
 matrix_cosmo_target <- confusionMatrix(
-  data_impact_categories_above10$categories_cosmo_target,
-  data_impact_categories_above10$categories_measurement
+  data_impact_categories$categories_cosmo_target,
+  data_impact_categories$categories_measurement
 )
 kappa_cosmo_target <- matrix_cosmo_target$overall[1:2] %>%
   tibble() %>%
@@ -1041,8 +1032,8 @@ kappa_cosmo_target <- matrix_cosmo_target$overall[1:2] %>%
   )
 
 matrix_ml <- confusionMatrix(
-  data_impact_categories_above10$categories_ml,
-  data_impact_categories_above10$categories_measurement
+  data_impact_categories$categories_ml,
+  data_impact_categories$categories_measurement
 )
 kappa_ml <- matrix_ml$overall[1:2] %>%
   tibble() %>%
@@ -1071,7 +1062,7 @@ We can treat them as numerical values from 0:nothing - 4: very strong.
 my_header <- c(seciesl_sel = 3)
 names(my_header) <- species_selected
 
-mae_category <- data_impact_categories_above10 %>%
+mae_category <- data_impact_categories %>%
   select(
     taxon, station, datetime,
     categories_measurement, categories_cosmo_input, categories_cosmo_target, categories_ml
@@ -1190,7 +1181,7 @@ If the Estimator is > 0.5 then the model tends to have larger measurements.
 npar_contr <-
   nparcomp(
     value ~ type,
-    data = data_above10,
+    data = data_combined,
     conf.level = 0.95,
     alternative = "two.sided",
     type = "Dunnet",
