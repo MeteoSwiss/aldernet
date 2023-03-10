@@ -10,6 +10,13 @@ output:
   word_document: default
 ---
 
+Copyright (c) 2022 MeteoSwiss, contributors listed in AUTHORS
+
+Distributed under the terms of the BSD 3-Clause License.
+
+SPDX-License-Identifier: BSD-3-Clause
+
+
 In this notebook we evaluate the Alnus pollen forecast with a Deep Learning model.
 The notebook is an adjusted version of the one used for this
 [paper](https://github.com/MeteoSwiss-APN/realtime_calibration.git), and might still
