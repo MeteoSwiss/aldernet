@@ -38,7 +38,7 @@ repos:
         description: Check for spelling errors
         language: system
         entry: codespell
-        exclude: ^notebooks
+        exclude: '(notebooks|data|requirements)/'
 -   repo: local
     hooks:
     -   id: black
