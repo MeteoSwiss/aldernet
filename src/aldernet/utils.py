@@ -17,7 +17,6 @@ To create realistic Images of Pollen Surface Concentration Maps.
 # pyright: reportGeneralTypeIssues=false
 
 # Standard library
-import logging
 import math
 import time
 from pathlib import Path
@@ -817,15 +816,3 @@ def predict_season(best_model, data_valid, noise_dim, add_weather):
         else:
             predictions = best_model.predict(data_valid.x)
     return predictions
-
-
-def count_to_log_level(count: int) -> int:
-    """Map occurrence of the command line option verbose to the log level."""
-    if count == 0:
-        return logging.ERROR
-    elif count == 1:
-        return logging.WARNING
-    elif count == 2:
-        return logging.INFO
-    else:
-        return logging.DEBUG
