@@ -27,7 +27,7 @@ authors = [
 
 [project.urls]
 source = "MeteoSwiss-APN/aldernet"
-documentation = "https://github.io/sadamov/aldernet"
+documentation = "https://github.io/MeteoSwiss/aldernet"
 
 [project.scripts]
 # Format: <command> = "<package>.<module>:<function>"
