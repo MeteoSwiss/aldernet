@@ -30,7 +30,7 @@ jobs:
         pre-build-command: ''
         docs-folder: "docs/"
       env:
-        PYTHONPATH: ${{ env.PYTHONPATH }}:~/.local/bin/
+        PYTHONPATH: ${{ env.PYTHONPATH }}:~/.local/bin/aldernet:~/.local/bin/sphinx-mdinclude
     # Great extra actions to compose with:
     # Create an artifact of the html output.
     - uses: actions/upload-artifact@v1
