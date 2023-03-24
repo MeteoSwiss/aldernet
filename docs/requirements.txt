@@ -1,6 +1,5 @@
 cfgrib
 graphviz
-iconarray
 ipdb>=0.13
 keras
 matplotlib
