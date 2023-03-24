@@ -121,7 +121,6 @@ data/*.nc
 data/*.diagnostic
 output/pred*
 output/gif
-output/report.txt
 output/20*
 src/test.py
 src/other_repos

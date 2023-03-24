@@ -44,8 +44,6 @@ dependencies:
   - pylint>=2.15
   - pyprojroot
   - pytest>=7.2
-  - pytorch
-  - pytorch-cuda=11.7
   - r-base
   - r-caret
   - r-conflicted
