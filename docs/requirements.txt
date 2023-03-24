@@ -1,4 +1,3 @@
-name: aldernet
 channels:
   - conda-forge
   - pytorch
