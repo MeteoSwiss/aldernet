@@ -119,7 +119,10 @@ data/cosmo*
 data/images*
 data/*.nc
 data/*.diagnostic
-output
+output/pred*
+output/gif
+output/report.txt
+output/20*
 src/test.py
 src/other_repos
 src/aldernet/sample*

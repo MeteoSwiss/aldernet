@@ -1,0 +1,15 @@
+# Define Parameters for the model training here:
+
+input_species: "CORY"
+target_species: "ALNU"
+retrain_model: false
+tune_with_ray: true
+zoom: ""
+noise_dim: 100
+epochs: 1
+shuffle: true
+add_weather: false
+conv: false
+members: 1
+device:
+  gpu: 4

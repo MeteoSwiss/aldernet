@@ -68,6 +68,7 @@ import subprocess
 
 # Third-party
 import git
+import yaml
 from pyprojroot import here  # type: ignore
 from tensorflow import random  # type: ignore
 
@@ -84,22 +85,10 @@ def main():
     sha = repo.head.object.hexsha
     hostname = socket.gethostname()
 
-    # ---> DEFINE SETTINGS HERE <--- #
-    settings = {
-        "input_species": "CORY",
-        "target_species": "ALNU",
-        "retrain_model": True,
-        "tune_with_ray": True,
-        "zoom": "",
-        "noise_dim": 100,
-        "epochs": 1,
-        "shuffle": True,
-        "add_weather": False,
-        "conv": False,
-        "members": 1,
-        "device": {"gpu": 4},
-    }
-    # -------------------------------#
+    with open(
+        str(here()) + "/src/aldernet/hyperparameters.yaml", "r", encoding="utf-8"
+    ) as f:
+        settings = yaml.safe_load(f)
 
     tf_setup()
     random.set_seed(1)

@@ -472,10 +472,9 @@ def load_pretrained_model():
 
     """
     return Checkpoint.from_directory(
-        "/users/sadamov/pyprojects/aldernet/output/20221229_164219/"
-        "train_model_2022-12-29_16-42-33/train_model_69560_00000_0_beta_1="
-        "0.9500,beta_2=0.9800,"
-        "learning_rate=0.0010_2022-12-29_16-42-52/checkpoint_000000"
+        "/users/sadamov/pyprojects/aldernet/output/20230228_114607/train_model_2023-"
+        "02-28_11-46-32/train_model_29eef_00000_0_beta_1=0.9500,beta_2=0.9800,"
+        "learning_rate=0.0010_2023-02-28_11-46-51/checkpoint_000000"
     ).to_dict()["model"]
 
 
@@ -494,34 +493,35 @@ def save_predictions_and_generate_report(settings, best_model, data_valid):
     )
     with open(str(here()) + "/data/scaling.txt", "r", encoding="utf-8") as f:
         lines = [line.rstrip() for line in f]
-        center, scale = lines[0].split(" ")
-        center, scale = float(center), float(scale)
+        center = float(lines[0].split(" ")[-1])
+        scale = float(lines[1].split(" ")[-1])
 
-        stations = Stations().name
+    data_valid[settings["target_species"]] = (data_valid.dims, np.squeeze(predictions))
+    data_valid_out = np.maximum(
+        0, data_valid[settings["target_species"]] * scale + center
+    )
+    data_valid_out.to_netcdf(str(here()) + "/data/pollen_ml.nc")  # type: ignore
 
-        df = pd.DataFrame(columns=["datetime", "station", "predicted", "observed"])
-        for s in stations:
-            for date in pd.to_datetime(data_valid["datetime"]):
-                df = df.append(
-                    {
-                        "datetime": date,
-                        "station": s,
-                        "predicted": (
-                            predictions.sel(station=s, datetime=date).values * scale
-                        )
-                        + center,
-                        "observed": (
-                            data_valid[settings["target_species"]]
-                            .sel(station=s, datetime=date)
-                            .values
-                            * scale
-                        )
-                        + center,
-                    },
-                    ignore_index=True,
-                )
+    if settings["target_species"] == "ALNU":
+        target_species_name = "Alnus"
+    else:
+        target_species_name = ""
 
-        df.to_csv(str(here()) + "/data/pollen_ml.atab", sep=",", index=False)
+    station_values = data_valid_out.values[  # type:ignore
+        :, Stations().grids["grid_j"], Stations().grids["grid_i"]
+    ]
+    data_pd = pd.concat(
+        [
+            pd.DataFrame(
+                {"datetime": data_valid.valid_time.values, "taxon": target_species_name}
+            ),
+            pd.DataFrame(station_values),
+        ],
+        axis=1,
+    )
+
+    data_pd.columns = ["datetime", "taxon"] + Stations().name  # type: ignore
+    data_pd.to_csv(str(here()) + "/data/pollen_ml.atab", sep=",", index=False)
 
 
 def generate_report(df, settings):
@@ -1246,7 +1246,8 @@ def train_model_simple(data_train, data_valid, epochs, add_weather, conv=True):
     """Train a simple U-Net model on `data_train` and validate on `data_valid`.
 
     Args:
-        data_train (Batcher): Training data. data_valid (Batcher): Validation data.
+        data_train (Batcher): Training data.
+        data_valid (Batcher): Validation data.
         epochs (int): Number of epochs to train the model for. add_weather (bool):
         Whether or not to include weather data. conv (bool, optional): Whether to use
         convolutional layers (default is True).
