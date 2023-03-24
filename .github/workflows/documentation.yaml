@@ -22,9 +22,15 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: 3.10.8
+    - name: Cache pip packages
+      uses: actions/cache@v2
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
     - name: install dependencies
       run: pip install .; pip install sphinx-mdinclude
-    - uses: C2SM/sphinx-action@sphinx-latest
+    - name: sphinx-action
+      uses: C2SM/sphinx-action@sphinx-latest
       with:
         pre-build-command: ''
         docs-folder: "docs/"
