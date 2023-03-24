@@ -25,7 +25,6 @@ jobs:
     - name: sphinx-action
       uses: C2SM/sphinx-action@sphinx-latest
       with:
-        pre-build-command: 'pip install .'
         docs-folder: "docs/"
     # Great extra actions to compose with:
     # Create an artifact of the html output.
