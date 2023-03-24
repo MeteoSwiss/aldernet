@@ -85,7 +85,6 @@ dependencies:
   - pip:
     # development
     - copier>=7.0
-    - denoising_diffusion_pytorch
     - flake8-pyproject>=1.2
     - iconarray
     - prometheus-client
