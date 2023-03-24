@@ -9,9 +9,9 @@ predictions. The report is then converted to an html file using an R script.
 Modules:
 ~~~~~~~~
     - socket: Provides a way to get the hostname of the computer the script is running
-      on.
+        on.
     - subprocess: Provides a way to run the R script to convert the report to an html
-      file.
+        file.
     - git: Provides a way to get the SHA of the current git commit.
     - pyprojroot: Provides a way to get the root directory of the project.
     - tensorflow: Provides a way to set up the tensorflow backend and random seed.
@@ -20,9 +20,9 @@ First-party Modules:
 ~~~~~~~~~~~~~~~~~~~~
     - aldernet.utils.load_data: Provides a way to load the training and validation data.
     - aldernet.utils.save_predictions_and_generate_report: Provides a way to save the
-      predictions and generate a report with them.
+        predictions and generate a report with them.
     - aldernet.utils.setup_output_directory: Provides a way to set up the output
-      directory.
+        directory.
     - aldernet.utils.tf_setup: Provides a way to set up the tensorflow backend.
     - aldernet.utils.train_and_evaluate_model: Provides a way to train and evaluate the
       model.
@@ -45,7 +45,7 @@ Variables:
         - "conv": Whether to use convolutional layers instead of dense layers.
         - "members": The number of ensemble members to use.
         - "device": A dictionary containing the device to use for training. The keys
-          are:
+            are:
             - "gpu": The number of the GPU to use for training.
 
     - data_train: The training data.
