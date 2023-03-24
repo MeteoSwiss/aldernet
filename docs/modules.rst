@@ -13,7 +13,6 @@ Utility Functions
 
 .. automodule:: aldernet.utils
    :members:
-   :inherited-members:
 
 Data Preparation
 ----------------
