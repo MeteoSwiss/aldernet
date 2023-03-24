@@ -13,9 +13,7 @@ prometheus-client
 psyplot
 pydot
 pyprojroot
-ray-air
-ray-dashboard
-ray-tune
+ray[tune]
 rich>=12.6
 rope>=1.6
 sphinx-autobuild>=2021.3
