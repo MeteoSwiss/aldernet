@@ -79,6 +79,7 @@ dependencies:
   - torchaudio
   - torchvision
   - types-Pillow
+  - types-PyYAML
   - types-setuptools>=65.6
   - types-toml>=0.10
   - xarray
