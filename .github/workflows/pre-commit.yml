@@ -41,3 +41,5 @@ jobs:
     - name: Run pre-commit hooks
       run: |
         mamba run --name dev_env pre-commit run --all-files
+    - name: Run tests
+      run: pytest

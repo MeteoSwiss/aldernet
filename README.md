@@ -1,5 +1,7 @@
 # Aldernet
 
+[![View GitHub IO Page](https://img.shields.io/badge/View-GitHub%20IO%20Page-blue)](https://meteoswiss.github.io/aldernet/)
+
 ## Start developing
 
 Once you created or cloned this repository, make sure the installation is running properly. Install the package dependencies with the provided script `setup_env.sh`.
