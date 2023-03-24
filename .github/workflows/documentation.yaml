@@ -23,14 +23,14 @@ jobs:
       with:
         python-version: 3.10.8
     - name: install dependencies
-      run: pip install . sphinx-mdinclude --target=/home/runner/work/bin;
+      run: pip install . sphinx-mdinclude --target=/home/runner/work/bin
     - name: sphinx-action
       uses: C2SM/sphinx-action@sphinx-latest
       with:
         pre-build-command: ''
         docs-folder: "docs/"
       env:
-        PYTHONPATH: ${{ env.PYTHONPATH }}:/home/runner/work/bin/
+        PYTHONPATH: ${{ env.PYTHONPATH }}:/home/runner/work/bin/aldernet:/home/runner/work/bin/sphinx-mdinclude
     # Great extra actions to compose with:
     # Create an artifact of the html output.
     - uses: actions/upload-artifact@v1
