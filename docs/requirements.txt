@@ -1,5 +1,4 @@
 cfgrib
-git
 graphviz
 ipdb>=0.13
 keras
