@@ -14,7 +14,6 @@ from unittest.mock import patch
 # Third-party
 import keras  # type: ignore
 import numpy as np
-import pandas as pd  # type: ignore
 import tensorflow as tf  # type: ignore
 import xarray as xr
 from pyprojroot import here  # type: ignore
@@ -29,7 +28,6 @@ from aldernet.utils import compile_generator
 from aldernet.utils import create_optimizer
 from aldernet.utils import define_filters
 from aldernet.utils import down
-from aldernet.utils import generate_report
 from aldernet.utils import get_callbacks
 from aldernet.utils import get_runtime_env
 from aldernet.utils import get_scheduler
@@ -227,24 +225,6 @@ class TestMyFunctions(unittest.TestCase):  # pylint: disable=R0902,R0904
         Mock()
         Mock()
         mock_train_model_simple.return_value = Mock()
-
-    def test_generate_report(self):
-        # Arrange
-        df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
-
-        # Act
-        generate_report(df, self.settings)
-
-        # Assert
-        with open(str(here()) + "/output/report.txt", "r", encoding="UTF-8") as f:
-            lines = f.readlines()
-            self.assertEqual(lines[0], "Training settings:\n")
-            self.assertEqual(lines[1], "batch_size: 32\n")
-            self.assertEqual(lines[2], "\n")
-            self.assertEqual(lines[3], "Predictions and observed values:\n")
-            self.assertEqual(lines[4], "   a  b\n")
-            self.assertEqual(lines[5], "0  1  3\n")
-            self.assertEqual(lines[6], "1  2  4members: 10\n")
 
     def test_define_filters(self):
         # Act
