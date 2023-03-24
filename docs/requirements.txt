@@ -1,7 +1,3 @@
-channels:
-  - conda-forge
-  - pytorch
-  - nvidia
 dependencies:
   - python>=3.10
   - pip>=22.3
