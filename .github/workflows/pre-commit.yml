@@ -11,6 +11,7 @@ on:
 jobs:
   blueprint-pre-commit:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     defaults:
       run:
         shell: bash -l {0}
@@ -35,6 +36,8 @@ jobs:
     - name: Install project into env
       run: |
         mamba run --name dev_env pip install --no-deps .
+    - name: Run tests
+      run: mamba run --name dev_env pytest -v
     - name: Install pre-commit hooks
       run: |
         mamba run --name dev_env pre-commit install-hooks

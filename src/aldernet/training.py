@@ -1,238 +1,110 @@
+"""Train a U-Net based on COSMO-1e input data.
+
+This script loads and processes input data and trains a U-Net model to predict target
+species data using COSMO-1e input data. The model is trained and evaluated using the
+training and validation data, and the best model is saved. Predictions are then made
+using the saved model on the validation data, and a report is generated with the
+predictions. The report is then converted to an html file using an R script.
+
+Modules:
+~~~~~~~~
+    - socket: Provides a way to get the hostname of the computer the script is running
+        on.
+    - subprocess: Provides a way to run the R script to convert the report to an html
+        file.
+    - git: Provides a way to get the SHA of the current git commit.
+    - pyprojroot: Provides a way to get the root directory of the project.
+    - tensorflow: Provides a way to set up the tensorflow backend and random seed.
+
+First-party Modules:
+~~~~~~~~~~~~~~~~~~~~
+    - aldernet.utils.load_data: Provides a way to load the training and validation data.
+    - aldernet.utils.save_predictions_and_generate_report: Provides a way to save the
+        predictions and generate a report with them.
+    - aldernet.utils.setup_output_directory: Provides a way to set up the output
+        directory.
+    - aldernet.utils.tf_setup: Provides a way to set up the tensorflow backend.
+    - aldernet.utils.train_and_evaluate_model: Provides a way to train and evaluate the
+      model.
+
+Variables:
+~~~~~~~~~~
+    - repo: The git repository object for the project.
+    - sha: The SHA of the current git commit.
+    - hostname: The hostname of the computer the script is running on.
+    - settings: A dictionary containing the settings for the script. The keys are:
+        - "input_species": The species to use for input data.
+        - "target_species": The species to predict.
+        - "retrain_model": Whether to retrain the model or use a saved model.
+        - "tune_with_ray": Whether to use Ray for hyperparameter tuning.
+        - "zoom": The zoom level to use for the input data.
+        - "noise_dim": The dimension of the noise vector to use for the generator.
+        - "epochs": The number of epochs to train the model for.
+        - "shuffle": Whether to shuffle the training data before each epoch.
+        - "add_weather": Whether to add weather data to the input data.
+        - "conv": Whether to use convolutional layers instead of dense layers.
+        - "members": The number of ensemble members to use.
+        - "device": A dictionary containing the device to use for training. The keys
+            are:
+            - "gpu": The number of the GPU to use for training.
+
+    - data_train: The training data.
+    - data_valid: The validation data.
+    - run_path: The path to the output directory for the script.
+    - best_model: The best model obtained during training.
+"""
+
 # Copyright (c) 2022 MeteoSwiss, contributors listed in AUTHORS
-
 # Distributed under the terms of the BSD 3-Clause License.
-
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Train a cGAN and based on COSMO-1e input data."""
+# This optimized code has been refactored, linted, formatted, modularized, and cleaned
+# up by GPT-4 to improve readability and maintainability.
 
-# Copyright (c) 2022 MeteoSwiss, contributors listed in AUTHORS
-# Distributed under the terms of the BSD 3-Clause License.
-# SPDX-License-Identifier: BSD-3-Clause
 
 # Standard library
-import datetime
 import socket
 import subprocess
-from contextlib import redirect_stdout
-from pathlib import Path
 
 # Third-party
 import git
-import mlflow  # type: ignore
-import numpy as np
-import pandas as pd  # type: ignore
-import xarray as xr
-from keras.utils.vis_utils import plot_model  # type: ignore
+import yaml
 from pyprojroot import here  # type: ignore
-from ray import init
-from ray import shutdown
-from ray import tune
-from ray.air.checkpoint import Checkpoint
-from ray.air.integrations.mlflow import MLflowLoggerCallback  # type: ignore
-from ray.tune.schedulers import ASHAScheduler
 from tensorflow import random  # type: ignore
 
 # First-party
-from aldernet.data.data_utils import Batcher
-from aldernet.data.data_utils import Stations
-from aldernet.utils import compile_generator
-from aldernet.utils import define_filters
-from aldernet.utils import predict_season
+from aldernet.utils import load_data
+from aldernet.utils import save_predictions_and_generate_report
+from aldernet.utils import setup_output_directory
 from aldernet.utils import tf_setup
-from aldernet.utils import train_model
-from aldernet.utils import train_model_simple
+from aldernet.utils import train_and_evaluate_model
 
-repo = git.Repo(search_parent_directories=True)
-sha = repo.head.object.hexsha
 
-# ---> DEFINE SETTINGS HERE <--- #
-input_species = "CORY"
-target_species = "ALNU"
-retrain_model = True
-tune_with_ray = True
-zoom = ""
-noise_dim = 100
-epochs = 1
-shuffle = True
-add_weather = False
-conv = False
-members = 1
-device = {"gpu": 4}
-# -------------------------------#
+def main():
+    repo = git.Repo(search_parent_directories=True)
+    sha = repo.head.object.hexsha
+    hostname = socket.gethostname()
 
-hostname = socket.gethostname()
-if "tsa" in hostname:
-    data_train = xr.open_zarr(
-        "/scratch/sadamov/pyprojects_data/aldernet/5_threshold"
-        + zoom
-        + "/data_train.zarr"
+    with open(
+        str(here()) + "/src/aldernet/hyperparameters.yaml", "r", encoding="utf-8"
+    ) as f:
+        settings = yaml.safe_load(f)
+
+    tf_setup()
+    random.set_seed(1)
+
+    data_train, data_valid = load_data(hostname, settings)
+    run_path = setup_output_directory(settings)
+    best_model = train_and_evaluate_model(
+        run_path, settings, data_train, data_valid, sha
     )
-    data_valid = xr.open_zarr(
-        "/scratch/sadamov/pyprojects_data/aldernet/5_threshold"
-        + zoom
-        + "/data_valid.zarr"
-    )
-elif "nid" in hostname:
-    data_train = xr.open_zarr(
-        "/scratch/e1000/meteoswiss/scratch/sadamov/pyprojects_data/aldernet/"
-        + zoom
-        + "/data_final/data_train.zarr"
-    )
-    data_valid = xr.open_zarr(
-        "/scratch/e1000/meteoswiss/scratch/sadamov/pyprojects_data/aldernet/"
-        + zoom
-        + "/data_final/data_valid.zarr"
-    )
-else:
-    data_train = xr.DataArray()
-    data_valid = xr.DataArray()
+    save_predictions_and_generate_report(settings, best_model, data_valid)
 
-if target_species == "ALNU":
-    target_species_name = "Alnus"
-else:
-    target_species_name = ""
+    with subprocess.Popen(
+        ["Rscript", "--vanilla", str(here()) + "/notebooks/rmd2html.R"], shell=False
+    ):
+        print("Creating html verification report.")
 
-tf_setup()
-random.set_seed(1)
 
-run_path = str(here()) + "/output/" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-if tune_with_ray and retrain_model:
-    Path(run_path + "/viz/valid").mkdir(parents=True, exist_ok=True)
-
-if retrain_model:
-    if tune_with_ray:
-        height = data_train.CORY.shape[1]
-        width = data_train.CORY.shape[2]
-        if add_weather:
-            weather_features = len(
-                data_train.drop_vars((target_species, input_species)).data_vars
-            )
-        else:
-            weather_features = 0
-        filters = define_filters(zoom)
-        generator = compile_generator(
-            height, width, weather_features, noise_dim, filters
-        )
-
-        with open(run_path + "/generator_summary.txt", "w", encoding="UTF-8") as handle:
-            with redirect_stdout(handle):
-                generator.summary()
-        plot_model(
-            generator, to_file=run_path + "/generator.png", show_shapes=True, dpi=96
-        )
-
-        # Train
-
-        # Use hyperparameter search functionality by ray tune and log experiment
-        shutdown()
-        init(
-            runtime_env={
-                "working_dir": str(here()),
-                "excludes": ["data/", ".git/", "images/", "core"],
-            }
-        )
-
-        tuner = tune.run(
-            tune.with_parameters(
-                train_model,
-                generator=generator,
-                data_train=data_train,
-                data_valid=data_valid,
-                run_path=run_path,
-                noise_dim=noise_dim,
-                add_weather=add_weather,
-                shuffle=shuffle,
-            ),
-            metric="Loss",
-            mode="min",
-            num_samples=members,
-            scheduler=ASHAScheduler(
-                time_attr="training_iteration",
-                max_t=epochs,
-                grace_period=1,
-                reduction_factor=3,
-            ),
-            resources_per_trial=device,  # Choose appropriate Device
-            config={
-                # define search space here
-                "learning_rate": tune.choice([0.001]),
-                "beta_1": tune.choice([0.9, 0.95]),
-                "beta_2": tune.choice([0.98, 0.99]),
-                "mlflow": {
-                    "experiment_name": "Aldernet",
-                    "tracking_uri": mlflow.get_tracking_uri(),
-                },
-            },
-            local_dir=run_path,
-            keep_checkpoints_num=1,
-            callbacks=[
-                MLflowLoggerCallback(
-                    experiment_name="Aldernet",
-                    tags={"git_commit": sha},
-                    tracking_uri=run_path + "/mlruns",
-                    save_artifact=True,
-                )
-            ],
-        )
-        # rsync commands to merge the mlruns directories
-        rsync_cmd = "rsync" + " -avzh " + run_path + "/mlruns" + " " + str(here())
-        subprocess.run(rsync_cmd, shell=True, check=True)
-        best_model = tuner.best_checkpoint.to_dict()["model"]
-    else:
-        batcher_train = Batcher(
-            data_train, batch_size=32, add_weather=add_weather, shuffle=shuffle
-        )
-        batcher_valid = Batcher(
-            data_valid, batch_size=32, add_weather=add_weather, shuffle=shuffle
-        )
-        simple_model = train_model_simple(
-            batcher_train,
-            batcher_valid,
-            epochs=epochs,
-            add_weather=add_weather,
-            conv=conv,
-        )
-        best_model = simple_model
-else:
-    best_model = Checkpoint.from_directory(
-        "/users/sadamov/pyprojects/aldernet/output/20221229_164219/"
-        "train_model_2022-12-29_16-42-33/train_model_69560_00000_0_beta_1="
-        "0.9500,beta_2=0.9800,"
-        "learning_rate=0.0010_2022-12-29_16-42-52/checkpoint_000000"
-    ).to_dict()["model"]
-
-predictions = predict_season(best_model, data_valid, noise_dim, add_weather)
-
-with open(str(here()) + "/data/scaling.txt", "r", encoding="utf-8") as f:
-    lines = [line.rstrip() for line in f]
-    center = float(lines[0].split(": ")[1])
-    scale = float(lines[1].split(": ")[1])
-
-data_valid[target_species] = (data_valid.dims, np.squeeze(predictions))
-data_alnu_output = np.maximum(0, data_valid[target_species] * scale + center)
-
-data_alnu_output.to_netcdf(str(here()) + "/data/pollen_ml.nc")  # type: ignore
-
-station_values = data_alnu_output.values[  # type:ignore
-    :, Stations().grids["grid_j"], Stations().grids["grid_i"]
-]
-
-data_pd = pd.concat(
-    [
-        pd.DataFrame(
-            {"datetime": data_valid.valid_time.values, "taxon": target_species_name}
-        ),
-        pd.DataFrame(station_values),
-    ],
-    axis=1,
-)
-
-data_pd.columns = ["datetime", "taxon"] + Stations().name  # type: ignore
-
-data_pd.to_csv(str(here()) + "/data/pollen_ml.atab", sep=",", index=False)
-
-with subprocess.Popen(
-    ["Rscript", "--vanilla", str(here()) + "/notebooks/rmd2html.R"], shell=False
-):
-    print("Creating html verification report.")
+if __name__ == "__main__":
+    main()

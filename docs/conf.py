@@ -47,7 +47,7 @@ master_doc = "index"
 
 # General information about the project.
 project = "Aldernet"
-copyright = "2022, Simon Adamov"  # pylint: disable=W0622  # redefined-builtin
+copyright = "2023, MeteoSwiss"  # pylint: disable=W0622  # redefined-builtin
 author = "Simon Adamov"
 
 # The version info for the project you're documenting, acts as replacement
