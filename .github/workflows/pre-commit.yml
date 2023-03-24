@@ -37,7 +37,7 @@ jobs:
       run: |
         mamba run --name dev_env pip install --no-deps .
     - name: Run tests
-      run: mamba run --name dev_env pytest
+      run: mamba run --name dev_env pytest -v
     - name: Install pre-commit hooks
       run: |
         mamba run --name dev_env pre-commit install-hooks
