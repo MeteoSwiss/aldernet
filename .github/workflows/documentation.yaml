@@ -23,7 +23,7 @@ jobs:
       with:
         python-version: 3.10.8
     - name: install dependencies
-      run: pip install .; pip install sphinx-mdinclude
+      run: pip install .; pip install sphinx-mdinclude; pip show aldernet
     - name: sphinx-action
       uses: C2SM/sphinx-action@sphinx-latest
       with:
