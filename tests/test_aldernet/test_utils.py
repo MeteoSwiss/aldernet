@@ -67,8 +67,8 @@ class TestMyFunctions(unittest.TestCase):  # pylint: disable=R0902,R0904
         self.data_train = Batcher(
             xr.Dataset(
                 {
-                    "CORY": (["valid_time", "x", "y"], np.random.rand(100, 128, 128)),
-                    "ALNU": (["valid_time", "x", "y"], np.random.rand(100, 128, 128)),
+                    "CORY": (["valid_time", "x", "y"], np.random.rand(8, 8, 8)),
+                    "ALNU": (["valid_time", "x", "y"], np.random.rand(8, 8, 8)),
                 }
             ),
             batch_size=32,
@@ -78,8 +78,8 @@ class TestMyFunctions(unittest.TestCase):  # pylint: disable=R0902,R0904
         self.data_valid = Batcher(
             xr.Dataset(
                 {
-                    "CORY": (["valid_time", "x", "y"], np.random.rand(100, 128, 128)),
-                    "ALNU": (["valid_time", "x", "y"], np.random.rand(100, 128, 128)),
+                    "CORY": (["valid_time", "x", "y"], np.random.rand(8, 8, 8)),
+                    "ALNU": (["valid_time", "x", "y"], np.random.rand(8, 8, 8)),
                 }
             ),
             batch_size=32,
@@ -280,9 +280,9 @@ class TestMyFunctions(unittest.TestCase):  # pylint: disable=R0902,R0904
 
     def test_write_png(self):
         # Create some example tensors
-        input_tensor = tf.ones(shape=(32, 256, 256, 1)).numpy()
-        target_tensor = tf.zeros(shape=(32, 256, 256, 1)).numpy()
-        predicted_tensor = tf.random.uniform(shape=(32, 256, 256, 1)).numpy()
+        input_tensor = tf.ones(shape=(4, 8, 8, 1)).numpy()
+        target_tensor = tf.zeros(shape=(4, 8, 8, 1)).numpy()
+        predicted_tensor = tf.random.uniform(shape=(4, 8, 8, 1)).numpy()
         image = (input_tensor, target_tensor, predicted_tensor)
         path = "test_image.png"
         pretty = True
@@ -292,13 +292,13 @@ class TestMyFunctions(unittest.TestCase):  # pylint: disable=R0902,R0904
 
     def test_train_step(self):
         # Create some example inputs
-        input_train = tf.ones(shape=(32, 256, 256, 1)).numpy()
-        target_train = tf.zeros(shape=(32, 256, 256, 1)).numpy()
-        weather_train = tf.random.uniform(shape=(32, 256, 256, 4)).numpy()
-        noise_dim = 128
+        input_train = tf.ones(shape=(32, 8, 8, 1)).numpy()
+        target_train = tf.zeros(shape=(32, 8, 8, 1)).numpy()
+        weather_train = tf.random.uniform(shape=(32, 8, 8, 4)).numpy()
+        noise_dim = 8
         add_weather = True
-        filters = [64, 128, 256, 512, 512, 512, 512, 512]
-        generator = compile_generator(256, 256, 4, 128, filters)
+        filters = [4, 8, 8, 16, 16, 16, 16, 16]
+        generator = compile_generator(8, 8, 4, 8, filters)
         optimizer_gen = tf.keras.optimizers.Adam(1e-4)
         loss = train_step(
             generator,
@@ -328,10 +328,10 @@ class TestMyFunctions(unittest.TestCase):  # pylint: disable=R0902,R0904
     def test_validate_epoch(self):
         # create some mock data
         data_cory = {
-            "CORY": (["valid_time", "x", "y"], np.random.rand(100, 128, 128)),
+            "CORY": (["valid_time", "x", "y"], np.random.rand(8, 8, 8)),
         }
         data_alnu = {
-            "ALNU": (["valid_time", "x", "y"], np.random.rand(100, 128, 128)),
+            "ALNU": (["valid_time", "x", "y"], np.random.rand(8, 8, 8)),
         }
         epoch = tf.Variable(1, dtype="int64")
         step = 1
