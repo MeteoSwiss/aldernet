@@ -7,40 +7,38 @@
 import os
 import socket
 import unittest
-from unittest.mock import MagicMock
-from unittest.mock import Mock
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 # Third-party
-import keras  # type: ignore
 import numpy as np
 import tensorflow as tf  # type: ignore
 import xarray as xr
-from pyprojroot import here  # type: ignore
-from ray.air.integrations.mlflow import MLflowLoggerCallback
-from ray.tune.schedulers import ASHAScheduler
 
 # First-party
-# First-party Import the functions to test
-from aldernet.utils import Batcher  # type: ignore
-from aldernet.utils import cbr
-from aldernet.utils import compile_generator
-from aldernet.utils import create_optimizer
-from aldernet.utils import define_filters
-from aldernet.utils import down
-from aldernet.utils import get_callbacks
-from aldernet.utils import get_runtime_env
-from aldernet.utils import get_scheduler
-from aldernet.utils import get_tune_config
-from aldernet.utils import load_data  # type: ignore
-from aldernet.utils import rsync_mlruns
-from aldernet.utils import setup_directories
-from aldernet.utils import train_and_evaluate_model
-from aldernet.utils import train_step
-from aldernet.utils import train_with_ray_tune
-from aldernet.utils import up
-from aldernet.utils import validate_epoch
-from aldernet.utils import write_png
+from aldernet.utils import (
+    Batcher,
+    cbr,
+    compile_generator,
+    create_optimizer,
+    define_filters,
+    down,
+    get_callbacks,
+    get_runtime_env,
+    get_scheduler,
+    get_tune_config,
+    load_data,
+    rsync_mlruns,
+    setup_directories,
+    train_and_evaluate_model,
+    train_step,
+    train_with_ray_tune,
+    up,
+    validate_epoch,
+    write_png,
+)
+from pyprojroot import here
+from ray.air.integrations.mlflow import MLflowLoggerCallback
+from ray.tune.schedulers import ASHAScheduler
 
 
 class TestMyFunctions(unittest.TestCase):  # pylint: disable=R0902,R0904
@@ -55,7 +53,6 @@ class TestMyFunctions(unittest.TestCase):  # pylint: disable=R0902,R0904
             "add_weather": True,
             "shuffle": True,
             "input_species": "CORY",
-            "tune_with_ray": True,
             "retrain_model": True,
             "target_species": "ALNU",
             "zoom": "",
@@ -100,18 +97,18 @@ class TestMyFunctions(unittest.TestCase):  # pylint: disable=R0902,R0904
         hostname = socket.gethostname()
         if "tsa" in hostname:
             # Test loading data from tsa.example.com
-            data_train, data_valid = load_data(self.hostname_tsa, self.settings)
+            data_train, data_valid = load_data(self.settings)
             self.assertIsInstance(data_train, xr.Dataset)
             self.assertIsInstance(data_valid, xr.Dataset)
         elif "nid" in hostname:
             # Test loading data from nid.example.com
-            data_train, data_valid = load_data(self.hostname_nid, self.settings)
+            data_train, data_valid = load_data(self.settings)
             self.assertIsInstance(data_train, xr.Dataset)
             self.assertIsInstance(data_valid, xr.Dataset)
 
         # Test raising ValueError for unknown hostname
         with self.assertRaises(ValueError):
-            load_data("unknown.example.com", self.settings)
+            load_data(self.settings)
 
     @patch("aldernet.utils.train_with_ray_tune")
     @patch("aldernet.utils.train_without_ray_tune")
@@ -130,15 +127,6 @@ class TestMyFunctions(unittest.TestCase):  # pylint: disable=R0902,R0904
             self.run_path, self.settings, self.data_train, self.data_valid, self.sha
         )
 
-        # Test retraining the model without Ray Tune
-        self.settings["tune_with_ray"] = False
-        train_and_evaluate_model(
-            self.run_path, self.settings, self.data_train, self.data_valid, self.sha
-        )
-        mock_train_without_ray_tune.assert_called_once_with(
-            self.settings, self.data_train, self.data_valid
-        )
-
         # Test loading a pretrained model
         self.settings["retrain_model"] = False
         train_and_evaluate_model(
@@ -147,12 +135,12 @@ class TestMyFunctions(unittest.TestCase):  # pylint: disable=R0902,R0904
         mock_load_pretrained_model.assert_called_once()
 
     def test_train_with_ray_tune(self):
-        with patch("aldernet.utils.prepare_generator") as mock_prepare_generator, patch(
-            "aldernet.utils.shutdown"
-        ) as mock_shutdown, patch("aldernet.utils.init") as mock_init, patch(
-            "aldernet.utils.tune.run"
-        ) as mock_tune_run, patch(
-            "aldernet.utils.rsync_mlruns"
+        with (
+            patch("aldernet.utils.prepare_generator") as mock_prepare_generator,
+            patch("aldernet.utils.shutdown") as mock_shutdown,
+            patch("aldernet.utils.init") as mock_init,
+            patch("aldernet.utils.tune.run") as mock_tune_run,
+            patch("aldernet.utils.rsync_mlruns"),
         ):
             mock_prepare_generator.return_value = MagicMock()
             mock_tuner = MagicMock()
@@ -217,15 +205,6 @@ class TestMyFunctions(unittest.TestCase):  # pylint: disable=R0902,R0904
             check=True,
         )
 
-    @patch("aldernet.utils.train_model_simple")
-    def test_train_without_ray_tune(self, mock_train_model_simple):
-        # Arrange
-        Mock()
-        Mock()
-        Mock()
-        Mock()
-        mock_train_model_simple.return_value = Mock()
-
     def test_define_filters(self):
         # Act
         result = define_filters("")
@@ -256,7 +235,7 @@ class TestMyFunctions(unittest.TestCase):  # pylint: disable=R0902,R0904
         generator = compile_generator(
             height, width, weather_features, noise_dim, filters
         )
-        self.assertIsInstance(generator, keras.Model)
+        self.assertIsInstance(generator, tf.keras.Model)
 
     def test_write_png(self):
         # Create some example tensors
