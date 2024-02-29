@@ -1,12 +1,12 @@
 # Define Parameters for the model training here:
-
+data_path: "/scratch/mch/sadamov/pyprojects_data/aldernet"
 input_species: "CORY"
 target_species: "ALNU"
-retrain_model: false
-tune_with_ray: true
+retrain_model: true
+checkpoint: "" # Required if retrain_model is false
 zoom: ""
 noise_dim: 100
-epochs: 1
+epochs: 2
 shuffle: true
 add_weather: false
 conv: false

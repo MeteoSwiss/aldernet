@@ -8,8 +8,6 @@ predictions. The report is then converted to an html file using an R script.
 
 Modules:
 ~~~~~~~~
-    - socket: Provides a way to get the hostname of the computer the script is running
-        on.
     - subprocess: Provides a way to run the R script to convert the report to an html
         file.
     - git: Provides a way to get the SHA of the current git commit.
@@ -31,12 +29,10 @@ Variables:
 ~~~~~~~~~~
     - repo: The git repository object for the project.
     - sha: The SHA of the current git commit.
-    - hostname: The hostname of the computer the script is running on.
     - settings: A dictionary containing the settings for the script. The keys are:
         - "input_species": The species to use for input data.
         - "target_species": The species to predict.
         - "retrain_model": Whether to retrain the model or use a saved model.
-        - "tune_with_ray": Whether to use Ray for hyperparameter tuning.
         - "zoom": The zoom level to use for the input data.
         - "noise_dim": The dimension of the noise vector to use for the generator.
         - "epochs": The number of epochs to train the model for.
@@ -63,7 +59,6 @@ Variables:
 
 
 # Standard library
-import socket
 import subprocess
 
 # Third-party
@@ -73,17 +68,19 @@ from pyprojroot import here  # type: ignore
 from tensorflow import random  # type: ignore
 
 # First-party
-from aldernet.utils import load_data
-from aldernet.utils import save_predictions_and_generate_report
-from aldernet.utils import setup_output_directory
-from aldernet.utils import tf_setup
-from aldernet.utils import train_and_evaluate_model
+from aldernet.utils import (
+    load_data,
+    save_predictions_and_generate_report,
+    setup_output_directory,
+    tf_setup,
+    train_and_evaluate_model,
+)
 
 
 def main():
     repo = git.Repo(search_parent_directories=True)
     sha = repo.head.object.hexsha
-    hostname = socket.gethostname()
+    debug_mode = True
 
     with open(
         str(here()) + "/src/aldernet/hyperparameters.yaml", "r", encoding="utf-8"
@@ -93,10 +90,10 @@ def main():
     tf_setup()
     random.set_seed(1)
 
-    data_train, data_valid = load_data(hostname, settings)
+    data_train, data_valid = load_data(settings)
     run_path = setup_output_directory(settings)
     best_model = train_and_evaluate_model(
-        run_path, settings, data_train, data_valid, sha
+        run_path, settings, sha, debug_mode
     )
     save_predictions_and_generate_report(settings, best_model, data_valid)
 
