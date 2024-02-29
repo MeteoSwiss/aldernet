@@ -7,38 +7,37 @@
 import os
 import socket
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 # Third-party
 import numpy as np
 import tensorflow as tf  # type: ignore
 import xarray as xr
-
-# First-party
-from aldernet.utils import (
-    Batcher,
-    cbr,
-    compile_generator,
-    create_optimizer,
-    define_filters,
-    down,
-    get_callbacks,
-    get_runtime_env,
-    get_scheduler,
-    get_tune_config,
-    load_data,
-    rsync_mlruns,
-    setup_directories,
-    train_and_evaluate_model,
-    train_step,
-    train_with_ray_tune,
-    up,
-    validate_epoch,
-    write_png,
-)
 from pyprojroot import here
 from ray.air.integrations.mlflow import MLflowLoggerCallback
 from ray.tune.schedulers import ASHAScheduler
+
+# First-party
+from aldernet.utils import Batcher
+from aldernet.utils import cbr
+from aldernet.utils import compile_generator
+from aldernet.utils import create_optimizer
+from aldernet.utils import define_filters
+from aldernet.utils import down
+from aldernet.utils import get_callbacks
+from aldernet.utils import get_runtime_env
+from aldernet.utils import get_scheduler
+from aldernet.utils import get_tune_config
+from aldernet.utils import load_data
+from aldernet.utils import rsync_mlruns
+from aldernet.utils import setup_directories
+from aldernet.utils import train_and_evaluate_model
+from aldernet.utils import train_step
+from aldernet.utils import train_with_ray_tune
+from aldernet.utils import up
+from aldernet.utils import validate_epoch
+from aldernet.utils import write_png
 
 
 class TestMyFunctions(unittest.TestCase):  # pylint: disable=R0902,R0904
@@ -116,22 +115,17 @@ class TestMyFunctions(unittest.TestCase):  # pylint: disable=R0902,R0904
     def test_train_and_evaluate_model(
         self,
         mock_load_pretrained_model,
-        mock_train_without_ray_tune,
         mock_train_with_ray_tune,
     ):
         # Test retraining the model with Ray Tune
-        train_and_evaluate_model(
-            self.run_path, self.settings, self.data_train, self.data_valid, self.sha
-        )
+        train_and_evaluate_model(self.run_path, self.settings, self.sha)
         mock_train_with_ray_tune.assert_called_once_with(
-            self.run_path, self.settings, self.data_train, self.data_valid, self.sha
+            self.run_path, self.settings, self.sha
         )
 
         # Test loading a pretrained model
         self.settings["retrain_model"] = False
-        train_and_evaluate_model(
-            self.run_path, self.settings, self.data_train, self.data_valid, self.sha
-        )
+        train_and_evaluate_model(self.run_path, self.settings, self.sha)
         mock_load_pretrained_model.assert_called_once()
 
     def test_train_with_ray_tune(self):

@@ -1,9 +1,10 @@
+# Third-party
 from _typeshed import Incomplete
 from tensorflow.keras.models import Sequential as Sequential  # type: ignore
 
+# First-party
 from aldernet.data.data_utils import Batcher as Batcher
 from aldernet.data.data_utils import Stations as Stations
-
 
 def load_data(settings): ...
 def setup_output_directory(settings): ...
@@ -27,8 +28,6 @@ def down(filters, name: Incomplete | None = None) -> Sequential: ...
 def up(filters, name: Incomplete | None = None) -> Sequential: ...
 def compile_generator(height, width, weather_features, noise_dim, filters): ...
 def write_png(image, path, pretty) -> None: ...
-
-
 def train_step(
     generator,
     optimizer_gen,
@@ -36,15 +35,12 @@ def train_step(
     target_train,
     weather_train,
     noise_dim,
-    add_weather): ...
-
-
+    add_weather,
+): ...
 def create_batcher(data, batch_size, add_weather, shuffle): ...
 def setup_directories(run_path, tune_trial) -> None: ...
 def read_scaling_data(): ...
 def create_optimizer(learning_rate, beta_1, beta_2): ...
-
-
 def train_epoch(
     generator,
     optimizer_gen,
@@ -56,9 +52,8 @@ def train_epoch(
     epoch,
     step,
     run_path,
-    tune_trial): ...
-
-
+    tune_trial,
+): ...
 def validate_epoch(
     generator,
     data_valid,
@@ -69,29 +64,13 @@ def validate_epoch(
     epoch,
     step_valid,
     run_path,
-    tune_trial): ...
-
-
+    tune_trial,
+): ...
 def train_model(
-    config,
-    generator,
-    data_train,
-    data_valid,
-    run_path,
-    noise_dim,
-    add_weather,
-    shuffle) -> None: ...
-
-
+    config, generator, data_train, data_valid, run_path, noise_dim, add_weather, shuffle
+) -> None: ...
 def build_unet(conv: bool = True): ...
-
-
 def train_model_simple(
-    data_train,
-    data_valid,
-    epochs,
-    add_weather,
-    conv: bool = True): ...
-
-
+    data_train, data_valid, epochs, add_weather, conv: bool = True
+): ...
 def predict_season(best_model, data_valid, noise_dim, add_weather): ...

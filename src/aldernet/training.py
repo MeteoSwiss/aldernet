@@ -68,13 +68,11 @@ from pyprojroot import here  # type: ignore
 from tensorflow import random  # type: ignore
 
 # First-party
-from aldernet.utils import (
-    load_data,
-    save_predictions_and_generate_report,
-    setup_output_directory,
-    tf_setup,
-    train_and_evaluate_model,
-)
+from aldernet.utils import load_data
+from aldernet.utils import save_predictions_and_generate_report
+from aldernet.utils import setup_output_directory
+from aldernet.utils import tf_setup
+from aldernet.utils import train_and_evaluate_model
 
 
 def main():
@@ -90,11 +88,9 @@ def main():
     tf_setup()
     random.set_seed(1)
 
-    data_train, data_valid = load_data(settings)
+    _, data_valid = load_data(settings)
     run_path = setup_output_directory(settings)
-    best_model = train_and_evaluate_model(
-        run_path, settings, sha, debug_mode
-    )
+    best_model = train_and_evaluate_model(run_path, settings, sha, debug_mode)
     save_predictions_and_generate_report(settings, best_model, data_valid)
 
     with subprocess.Popen(
