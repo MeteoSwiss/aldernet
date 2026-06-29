@@ -1,3 +1,5 @@
+> **This repository is no longer maintained.** It has been archived (read-only) and is kept for reference only.
+
 # Aldernet
 
 [![View GitHub IO Page](https://img.shields.io/badge/View-GitHub%20IO%20Page-blue)](https://meteoswiss.github.io/aldernet/)
